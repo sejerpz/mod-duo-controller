@@ -2025,6 +2025,13 @@ static void bank_config_update(uint8_t bank_func_idx)
     }
 }
 
+/* the name of a footswitch pedalboard; none before the first pedalboards list (a "bc" before "is"), where
+ * the names are not there yet: the LPC1759 reads its flash at address 0, a PC stops */
+static char *footswitch_pedalboard_name(int index)
+{
+    return g_footswitch_pedalboards.names ? g_footswitch_pedalboards.names[index] : NULL;
+}
+
 static void bank_config_footer(void)
 {
     uint8_t bypass;
@@ -2044,11 +2051,11 @@ static void bank_config_footer(void)
 		}
 
 		//index is relevant thats why - page_min
-		pedalboard_name = g_footswitch_pedalboards.names[g_current_pedalboard - g_footswitch_pedalboards.page_min];
+		pedalboard_name = footswitch_pedalboard_name(g_current_pedalboard - g_footswitch_pedalboards.page_min);
 		g_force_update_pedalboard = 0;
 	}
     //index is relevant thats why - page_min
-    else pedalboard_name = g_footswitch_pedalboards.names[g_current_pedalboard - g_footswitch_pedalboards.page_min];
+    else pedalboard_name = footswitch_pedalboard_name(g_current_pedalboard - g_footswitch_pedalboards.page_min);
 
     // updates all footer screen with bank functions
     uint8_t i;
@@ -2076,14 +2083,14 @@ static void bank_config_footer(void)
                 if (g_current_pedalboard == (g_footswitch_pedalboards.menu_max))
                 {
                     color = BLACK;
-                    pedalboard_name = g_footswitch_pedalboards.names[g_current_pedalboard - g_footswitch_pedalboards.page_min];
+                    pedalboard_name = footswitch_pedalboard_name(g_current_pedalboard - g_footswitch_pedalboards.page_min);
                 } 
                 else 
                 {
                     color = PEDALBOARD_NEXT_COLOR;
 
                     if (bank_config_check(!(bank_conf->hw_id- ENCODERS_COUNT)) == BANK_FUNC_PEDALBOARD_PREV)
-                    pedalboard_name = g_footswitch_pedalboards.names[g_current_pedalboard - g_footswitch_pedalboards.page_min + 1];
+                    pedalboard_name = footswitch_pedalboard_name(g_current_pedalboard - g_footswitch_pedalboards.page_min + 1);
                 }
                 
                 led_set_color(hardware_leds(bank_conf->hw_id - ENCODERS_COUNT), color);
@@ -2100,14 +2107,14 @@ static void bank_config_footer(void)
                 if (g_current_pedalboard == 1)
                 {
                     color = BLACK;
-                    pedalboard_name = g_footswitch_pedalboards.names[g_current_pedalboard - g_footswitch_pedalboards.page_min];
+                    pedalboard_name = footswitch_pedalboard_name(g_current_pedalboard - g_footswitch_pedalboards.page_min);
                 }
                 else 
                 {
                     color = PEDALBOARD_PREV_COLOR;
                 
                     if (bank_config_check(!(bank_conf->hw_id - ENCODERS_COUNT)) == BANK_FUNC_PEDALBOARD_NEXT)
-                    pedalboard_name = g_footswitch_pedalboards.names[g_current_pedalboard - g_footswitch_pedalboards.page_min - 1];
+                    pedalboard_name = footswitch_pedalboard_name(g_current_pedalboard - g_footswitch_pedalboards.page_min - 1);
                 }
 
                 led_set_color(hardware_leds(bank_conf->hw_id - ENCODERS_COUNT), color);
