@@ -256,6 +256,15 @@ static control_t *search_control(uint8_t hw_id, uint8_t *display)
     return NULL;
 }
 
+// the label of a scale point, empty when the value matched none (or there are none, e.g. presets none checked)
+static const char *scale_point_label(const control_t *control, uint8_t index)
+{
+    if (!control->scale_points || index >= control->scale_points_count)
+        return "";
+
+    return control->scale_points[index]->label;
+}
+
 // calculates the control value using the step
 static void step_to_value(control_t *control)
 {
@@ -612,7 +621,7 @@ static void foot_control_add(control_t *control)
         if (!display_has_tool_enabled(control->hw_id - ENCODERS_COUNT))
         {
             // updates the footer
-            screen_footer((control->hw_id - ENCODERS_COUNT), control->label, control->scale_points[i]->label, control->properties);
+            screen_footer((control->hw_id - ENCODERS_COUNT), control->label, scale_point_label(control, i), control->properties);
         }
     }
 }
@@ -2718,7 +2727,7 @@ void naveg_set_control(uint8_t hw_id, float value)
                 if (!display_has_tool_enabled(get_display_by_id(i, FOOT)))
                 {
                     // updates the footer
-                    screen_footer(control->hw_id - ENCODERS_COUNT, control->label, control->scale_points[i]->label, control->properties);
+                    screen_footer(control->hw_id - ENCODERS_COUNT, control->label, scale_point_label(control, i), control->properties);
                 }
             }
         }
@@ -3230,6 +3239,11 @@ void naveg_set_active_pedalboard(uint8_t pedalboard_index)
     uint32_t index = pedalboard_index + 1;
 
     g_current_pedalboard = index;
+
+    // the lists are only there while navigating: after boot or a web-ui disconnect they are
+    // NULL, and a MIDI program change still sends pchng. The index above is enough then
+    if (!g_banks || !g_naveg_pedalboards)
+        return;
 
     if (g_current_bank == g_banks->selected) {
         g_naveg_pedalboards->hover = index;
