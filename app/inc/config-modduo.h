@@ -234,8 +234,8 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
     {"SETTINGS",                        MENU_LIST,      ROOT_ID,            -1,             NULL                       , 0},  \
     {"BANKS",                           MENU_SET,       BANKS_ID,           ROOT_ID,        system_banks_cb            , 0},  \
     {"CURRENT PEDALBOARD",              MENU_LIST,      PEDALBOARD_ID,      ROOT_ID,        NULL                       , 0},  \
-    {"SAVE STATE",                      MENU_CONFIRM,   PEDALBOARD_SAVE_ID, PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \
-    {"RESET STATE",                     MENU_CONFIRM,   PEDALBOARD_RESET_ID,PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \
+    {"SAVE PEDALBOARD",                 MENU_CONFIRM,   PEDALBOARD_SAVE_ID, PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \
+    {"RESET PEDALBOARD",                MENU_CONFIRM,   PEDALBOARD_RESET_ID,PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \
     {"NEW PEDALBOARD",                  MENU_CONFIRM,   PEDALBOARD_NEW_ID,  PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \
     {"HARDWARE BYPASS",                 MENU_LIST,      BYPASS_ID,          ROOT_ID,        system_quick_bypass_cb     , 0},  \
     {"CHANNEL 1",                       MENU_TOGGLE,    BP1_ID,             BYPASS_ID,      system_bypass_cb           , 0},  \
@@ -309,8 +309,8 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define POPUP_CONTENT   \
     {PEDALBOARD_ID, "pedalboard", "To access the selected menu\nitem, disconnect from the\ngraphical web interface."}, \
     {BANKS_ID, "Banks", "To access the selected menu\nitem, disconnect from the\ngraphical web interface."}, \
-    {PEDALBOARD_SAVE_ID, "Save state", "Save current parameter values\nas the default for the active\npedalboard?"},         \
-    {PEDALBOARD_RESET_ID, "Reset state", "Reset all parameter values to\nthe last saved state for the\nactive pedalboard?"},      \
+    {PEDALBOARD_SAVE_ID, "Save pedalboard", "Save the active pedalboard:\nplugins, connections,\nbindings and values?"},         \
+    {PEDALBOARD_RESET_ID, "Reset pedalboard", "Undo every change made since\nthe last save of the active\npedalboard?"},      \
     {WEB_UI_ID, "Web interface", "Switch the web interface back\nto the default one? It will\nrestart, the pedalboard keeps\nplaying."},      \
     {PEDALBOARD_NEW_ID, "New pedalboard", "Replace the current pedalboard\nwith a new empty one?\nUnsaved changes are lost."},      \
     {BLUETOOTH_DISCO_ID, "Enable Bluetooth", "Bluetooth discovery mode is   now enabled for 2 minutes"},  \
