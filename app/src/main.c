@@ -254,6 +254,9 @@ static void displays_task(void *pvParameters)
             last_menu_update = xTaskGetTickCount();
         }
 
+        //WiFi state outside the WIFI page (title icon)
+        system_wifi_check();
+
         taskYIELD();
     }
 }

@@ -73,6 +73,8 @@ void cli_process(void);
 const char* cli_command(const char *command, uint8_t response_action);
 // same as cli_command with CLI_RETRIEVE_RESPONSE, waiting up to timeout_ms for the response
 const char* cli_command_wait(const char *command, uint32_t timeout_ms);
+// logged on the system and the shell configured: commands can be typed
+uint8_t cli_shell_ready(void);
 // execute systemctl command and return its status if any
 const char* cli_systemctl(const char *command, const char *service);
 // request package version information

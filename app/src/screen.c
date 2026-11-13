@@ -466,6 +466,19 @@ void screen_pb_name(const void *data, uint8_t update)
 
     icon_pedalboard(display, title.x - 11, 1);
 
+    // top right corner: the WiFi state, when there is an adapter (inverted with the bar)
+    switch (system_wifi_icon())
+    {
+        case WIFI_ICON_AP:
+            icon_access_point(display, DISPLAY_WIDTH - 11, 1);
+        break;
+
+        case WIFI_ICON_CONNECTED:
+        case WIFI_ICON_DISCONNECTED:
+            icon_wifi(display, DISPLAY_WIDTH - 11, 1, system_wifi_icon() == WIFI_ICON_CONNECTED);
+        break;
+    }
+
     //invert the top bar
     glcd_rect_invert(display, 0, 0, DISPLAY_WIDTH, 9);
 }

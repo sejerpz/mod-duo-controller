@@ -141,6 +141,9 @@ void widget_popup(glcd_t *display, popup_t *popup);
 //icons
 void icon_snapshot(glcd_t *display, uint8_t x, uint8_t y);
 void icon_pedalboard(glcd_t *display, uint8_t x, uint8_t y);
+// 11x7 badges of the WiFi state
+void icon_access_point(glcd_t *display, uint8_t x, uint8_t y);
+void icon_wifi(glcd_t *display, uint8_t x, uint8_t y, uint8_t connected);
 /*
 ************************************************************************************************************************
 *           CONFIGURATION ERRORS

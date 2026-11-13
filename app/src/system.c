@@ -506,6 +506,10 @@ void system_bluetooth_cb(void *arg, int event)
 enum {WIFI_UNKNOWN, WIFI_NO_DEVICE, WIFI_OFF, WIFI_ON, WIFI_STARTING, WIFI_STOPPING};
 static uint8_t g_wifi_state = WIFI_UNKNOWN;
 static uint8_t g_wifi_ap_supported = 0;
+// icon in the title of the control screen (WIFI_ICON_*), kept while the access point is starting / stopping
+static uint8_t g_wifi_icon = WIFI_ICON_NONE;
+// set by the protocol task at the end of a pedalboard load, read by the displays task
+static volatile uint8_t g_wifi_check_requested = 0;
 static char g_wifi_ip_text[16];
 static char g_wifi_status_text[20];
 // reads without an answer in a row, N/A on the page only from WIFI_MAX_TIMEOUTS
@@ -603,6 +607,13 @@ static void wifi_parse_status(char *status)
         strcpy(g_wifi_ip_text, "N/A");
         strcpy(g_wifi_status_text, "N/A");
     }
+
+    if (g_wifi_state == WIFI_ON)
+        g_wifi_icon = WIFI_ICON_AP;
+    else if (g_wifi_state == WIFI_OFF)
+        g_wifi_icon = (strcmp(args[0], "none") == 0) ? WIFI_ICON_DISCONNECTED : WIFI_ICON_CONNECTED;
+    else if (g_wifi_state == WIFI_NO_DEVICE || g_wifi_state == WIFI_UNKNOWN)
+        g_wifi_icon = WIFI_ICON_NONE;
 }
 
 static void wifi_read_status(void)
@@ -611,8 +622,11 @@ static void wifi_read_status(void)
 
     wifi_lock();
 
-    // the response buffer is reused by the next cli command: copy it
+    // the response buffer is reused by the next cli command: copy it. An empty line is the late output of a
+    // command that did not wait for it (mod-amixer save when the menu closes), not an answer
     const char *response = cli_command_wait("wifi-ap status", CLI_WIFI_RESPONSE_TIMEOUT);
+    if (response && !*response)
+        response = NULL;
     if (response)
     {
         strncpy(status, response, sizeof(status) - 1);
@@ -650,6 +664,66 @@ void system_wifi_cb(void *arg, int event)
 
     if (event == MENU_EV_ENTER)
         wifi_read_status();
+}
+
+// icon in the title: access point, client connected / not connected, none
+uint8_t system_wifi_icon(void)
+{
+    return g_wifi_icon;
+}
+
+// end of a pedalboard load (protocol task): the displays task reads the state
+void system_wifi_request_check(void)
+{
+    g_wifi_check_requested = 1;
+}
+
+/*
+ * State outside the WIFI page: read when leaving the menu, at the end of a pedalboard load (also the one at
+ * boot) and, while the access point is starting or stopping, every WIFI_CHECK_INTERVAL. No polling otherwise:
+ * the access point is switched only from the WIFI page, a change of the client connection is seen at the next
+ * of those events. Called by the displays task.
+ */
+#define WIFI_CHECK_INTERVAL 2000
+
+void system_wifi_check(void)
+{
+    static uint8_t last_menu = 0;
+    static uint8_t pending = 0;
+    static portTickType last_check = 0;
+
+    uint8_t menu = naveg_is_tool_mode(DISPLAY_LEFT);
+    if (last_menu && !menu)
+        pending = 1;
+    last_menu = menu;
+
+    if (g_wifi_check_requested)
+    {
+        g_wifi_check_requested = 0;
+        pending = 1;
+    }
+
+    // a page that refreshes itself is on screen, the WIFI page reads the state by itself
+    if (naveg_need_update())
+        return;
+
+    if ((g_wifi_state == WIFI_STARTING || g_wifi_state == WIFI_STOPPING) &&
+        (xTaskGetTickCount() - last_check) >= (WIFI_CHECK_INTERVAL / portTICK_RATE_MS))
+        pending = 1;
+
+    // nothing must be typed on the login prompt: LOGGED_ON_SYSTEM comes with it, before the login
+    if (!pending || naveg_waiting_for_ui() || !cli_shell_ready())
+        return;
+
+    pending = 0;
+    last_check = xTaskGetTickCount();
+
+    uint8_t was_icon = g_wifi_icon;
+    wifi_read_status();
+
+    // the title of the control screen; the menu redraws it when it closes
+    if (g_wifi_icon != was_icon && !naveg_is_tool_mode(DISPLAY_LEFT))
+        screen_pb_name(NULL, 0);
 }
 
 void system_wifi_ap_cb(void *arg, int event)

@@ -16,6 +16,7 @@
 #include "glcd.h"
 #include "utils.h"
 #include "screen.h"
+#include "system.h"
 #include "cli.h"
 #include "mod-protocol.h"
 
@@ -576,6 +577,9 @@ void cb_pedalboard_load_begin(proto_t *proto)
 void cb_pedalboard_load_end(proto_t *proto)
 {
     protocol_send_response(CMD_RESPONSE, 0, proto);
+
+    // WiFi icon of the title: read by the displays task, the cli is not used from here
+    system_wifi_request_check();
 }
 
 void cb_pedalboard_name(proto_t *proto)
