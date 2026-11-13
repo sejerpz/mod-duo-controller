@@ -204,9 +204,11 @@ static void procotol_task(void *pvParameters)
         system_lock_comm_serial(g_protocol_busy);
         // blocks until receive a new message
         ringbuff_t *rb = comm_webgui_read();
-        msg_size = ringbuff_read_until(rb, g_msg_buffer, WEBGUI_COMM_RX_BUFF_SIZE, 0);
-        // parses the message
-        if (msg_size > 0)
+
+        // every complete message waiting, not just one: the receive interrupt wakes us once per chunk of
+        // bytes, and a chunk can hold more than one message. One per wake-up leaves the rest waiting for
+        // the next message to arrive, which may be never if what waits is the answer we are blocked on.
+        while ((msg_size = ringbuff_read_until(rb, g_msg_buffer, WEBGUI_COMM_RX_BUFF_SIZE, 0)) > 0)
         {
             //if parsing messages block the actuator messages. 
             g_protocol_busy = true;
