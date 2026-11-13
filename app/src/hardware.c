@@ -12,6 +12,7 @@
 #include "actuator.h"
 #include "task.h"
 #include "device.h"
+#include "memory_map.h"
 
 
 /*
@@ -29,10 +30,10 @@
 *           LOCAL CONSTANTS
 ************************************************************************************************************************
 */
-const HeapRegion_t xHeapRegions[] =
+HeapRegion_t xHeapRegions[] =
 {
-    //{ ( uint8_t * ) 0x10005000, 0x2000 },
-    { ( uint8_t * ) 0x2007c000, 0x8000 },
+    { ( uint8_t * ) 0x10005000, 0x2000 }, // updated from the linker symbols in hardware_setup
+    { ( uint8_t * ) 0x2007c000, 0x8000 }, // 32KB AHB SRAM
     { NULL, 0 } /* Terminates the array. */
 };
 
@@ -152,6 +153,10 @@ void hardware_setup(void)
 
     // configure the peripherals power
     CLKPWR_ConfigPPWR(HW_CLK_PWR_CONTROL, ENABLE);
+
+    // the first region is whatever SRAM the linker left between the data and the main stack
+    xHeapRegions[0].pucStartAddress = (uint8_t *)_pvHeapStart;
+    xHeapRegions[0].xSizeInBytes = (size_t)(_pvHeapEnd - _pvHeapStart);
 
     //Pass the array into vPortDefineHeapRegions().
     vPortDefineHeapRegions( xHeapRegions );
