@@ -4,6 +4,9 @@ PRJNAME = mod-controller
 # toolchain configuration
 TOOLCHAIN_PREFIX = arm-none-eabi-
 
+# Get the short Git hash
+GIT_HASH := $(shell git rev-parse --short=8 HEAD)
+
 # Config
 # Enable SEMIHOST debug: librdimon
 # ENABLE_SEMIHOST
@@ -65,10 +68,12 @@ CFLAGS += -Wa,-adhlns=$(addprefix $(OUT_DIR)/, $(notdir $(addsuffix .lst, $(base
 CFLAGS += -MMD -MP -MF $(OUT_DIR)/dep/$(@F).d
 CFLAGS += -I. $(patsubst %,-I%,$(INC))
 CFLAGS += -D$(CPU_SERIE)
+CFLAGS += -DVERSION_HASH=\"v.$(GIT_HASH)\"
 ifneq ($(ENABLE_SEMIHOST),)
 CFLAGS += -DENABLE_SEMIHOST
 endif
 CFLAGS += -O2
+CFLAGS += -g
 CFLAGS += -fcommon
 
 
@@ -101,6 +106,7 @@ ELF = $(OUT_DIR)/$(PRJNAME).elf
 BIN = $(OUT_DIR)/$(PRJNAME).bin
 HEX = $(OUT_DIR)/$(PRJNAME).hex
 SYM = $(OUT_DIR)/$(PRJNAME).sym
+DBG_SYM = $(OUT_DIR)/$(PRJNAME).dbg
 LSS = $(OUT_DIR)/$(PRJNAME).lss
 
 # Colors definitions
@@ -118,7 +124,7 @@ endif
 modduo: all
 
 ifeq ($(CCC_ANALYZER_OUTPUT_FORMAT),)
-build: elf lss sym hex bin
+build: elf lss sym dbg_sym hex bin
 else
 build: elf
 endif
@@ -126,6 +132,7 @@ endif
 # output files
 elf: $(OUT_DIR)/$(PRJNAME).elf
 lss: $(OUT_DIR)/$(PRJNAME).lss
+dbg_sym: $(OUT_DIR)/$(PRJNAME).dbg
 sym: $(OUT_DIR)/$(PRJNAME).sym
 hex: $(OUT_DIR)/$(PRJNAME).hex
 bin: $(OUT_DIR)/$(PRJNAME).bin
@@ -160,6 +167,10 @@ $(LSS): $(ELF)
 $(SYM): $(ELF)
 	@echo -e ${GREEN}Creating symbols table${NOCOLOR}
 	@$(NM) -n $< > $@
+
+$(DBG_SYM): $(ELF)
+	@echo -e ${GREEN}Extracting debug symbols${NOCOLOR}
+	@$(OBJCOPY) --only-keep-debug $< $@
 
 # Link: create ELF output file from object files.
 $(ELF): $(OBJ)
