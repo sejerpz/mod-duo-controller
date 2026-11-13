@@ -107,6 +107,8 @@ void cb_restore(proto_t *proto);
 void cb_boot(proto_t *proto);
 void cb_menu_item_changed(proto_t *proto);
 void cb_pedalboard_clear(proto_t *proto);
+void cb_pedalboard_load_begin(proto_t *proto);
+void cb_pedalboard_load_end(proto_t *proto);
 void cb_pedalboard_name(proto_t *proto);
 void cb_pedalboard_change(proto_t *proto);
 void cb_snapshot_name(proto_t *proto);

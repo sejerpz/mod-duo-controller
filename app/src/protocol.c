@@ -283,6 +283,8 @@ void protocol_init(void)
     protocol_add_command(CMD_DUO_BOOT, cb_boot);
     protocol_add_command(CMD_MENU_ITEM_CHANGE, cb_menu_item_changed);
     protocol_add_command(CMD_PEDALBOARD_CLEAR, cb_pedalboard_clear);
+    protocol_add_command(CMD_PEDALBOARD_LOADING_BEGIN, cb_pedalboard_load_begin);
+    protocol_add_command(CMD_PEDALBOARD_LOADING_END, cb_pedalboard_load_end);
     protocol_add_command(CMD_PEDALBOARD_NAME_SET, cb_pedalboard_name);
     protocol_add_command(CMD_PEDALBOARD_CHANGE, cb_pedalboard_change);
     protocol_add_command(CMD_SNAPSHOT_NAME_SET, cb_snapshot_name);
@@ -560,6 +562,17 @@ void cb_pedalboard_clear(proto_t *proto)
 
     g_protocol_busy = false;
     system_lock_comm_serial(g_protocol_busy);
+}
+
+// the host brackets every pedalboard load with these; nothing on the HMI reacts to them yet
+void cb_pedalboard_load_begin(proto_t *proto)
+{
+    protocol_send_response(CMD_RESPONSE, 0, proto);
+}
+
+void cb_pedalboard_load_end(proto_t *proto)
+{
+    protocol_send_response(CMD_RESPONSE, 0, proto);
 }
 
 void cb_pedalboard_name(proto_t *proto)
