@@ -895,7 +895,8 @@ static void request_pedalboards(uint8_t dir, uint16_t bank_uid)
     // copy the bank uid
     i += int_to_str((bank_uid), &buffer[i], sizeof(buffer) - i, 0);
 
-    buffer[i++] = 0;
+    // not counted: comm_webgui_send() sends the terminator itself, one past the length given
+    buffer[i] = 0;
 
 	uint16_t prev_hover = g_current_pedalboard;
 	uint16_t prev_selected = g_current_pedalboard;
@@ -1952,7 +1953,8 @@ static void request_footswitch_pedalboards(uint8_t dir)
 	// copy the bank uid
 	i += int_to_str((g_current_bank), &buffer[i], sizeof(buffer) - i, 0);
 
-    buffer[i++] = 0;
+    // not counted: comm_webgui_send() sends the terminator itself, one past the length given
+    buffer[i] = 0;
 
     g_protocol_busy = true;
     system_lock_comm_serial(g_protocol_busy);

@@ -210,7 +210,8 @@ static void set_menu_item_value(uint16_t menu_id, uint16_t value)
     // copy the value
     i += int_to_str(value, &buffer[i], sizeof(buffer) - i, 0);
 
-    buffer[i++] = 0;
+    // not counted: comm_webgui_send() sends the terminator itself, one past the length given
+    buffer[i] = 0;
 
     // sets the response callback
     comm_webgui_set_response_cb(NULL, NULL);
