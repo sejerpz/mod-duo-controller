@@ -227,7 +227,7 @@ static void displays_task(void *pvParameters)
     UNUSED_PARAM(pvParameters);
 
     uint8_t i = 0;
-    uint32_t count = 0;
+    portTickType last_menu_update = xTaskGetTickCount();
 
     while (1)
     {
@@ -240,18 +240,18 @@ static void displays_task(void *pvParameters)
             naveg_update_pb_list();
         }
 
-        // I know, this is embarrassing
+        //menu items that refresh themselves (need_update)
         if (naveg_need_update())
         {
-            if (++count == 500000)
+            if ((xTaskGetTickCount() - last_menu_update) >= (MENU_UPDATE_INTERVAL / portTICK_RATE_MS))
             {
                 naveg_update();
-                count = 0;
+                last_menu_update = xTaskGetTickCount();
             }
         }
         else
         {
-            count = 0;
+            last_menu_update = xTaskGetTickCount();
         }
 
         taskYIELD();

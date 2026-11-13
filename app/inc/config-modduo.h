@@ -149,6 +149,9 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define ENCODER_ACCEL_STEP_2 3
 #define ENCODER_ACCEL_STEP_3 5
 
+// menu items that refresh themselves (need_update), in ms
+#define MENU_UPDATE_INTERVAL        1000
+
 // which display will show which tool
 #define DISPLAY_TOOL_SYSTEM         0
 #define DISPLAY_TOOL_TUNER          1
