@@ -120,6 +120,7 @@ void naveg_reset_menu(void);
 // update the navigation screen if necessary
 void naveg_update(void);
 int naveg_need_update(void);
+menu_item_t *naveg_get_menu_item_by_ID(uint16_t menu_id);
 
 void naveg_set_active_pedalboard(uint8_t pedalboard_index);
 void naveg_set_pb_list_update(void);

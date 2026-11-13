@@ -67,6 +67,8 @@ uint8_t system_get_current_profile(void);
 void system_true_bypass_cb(void *arg, int event);
 void system_pedalboard_cb(void *arg, int event);
 void system_bluetooth_cb(void *arg, int event);
+void system_wifi_cb(void *arg, int event);
+void system_wifi_ap_cb(void *arg, int event);
 void system_services_cb(void *arg, int event);
 void system_restart_jack_cb(void *arg, int event);
 void system_restart_host_cb(void *arg, int event);

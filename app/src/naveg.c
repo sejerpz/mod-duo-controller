@@ -1643,8 +1643,8 @@ static void menu_enter(uint8_t display_id)
                     item->data.popup_header = save_profile_header;
 
                 }
-                //cv toggle popups
-                else if ((item->desc->id == EXP_CV_INP) || (item->desc->id == HP_CV_OUTP))
+                //cv toggle and access point popups, they have a different popup depending on their current value
+                else if ((item->desc->id == EXP_CV_INP) || (item->desc->id == HP_CV_OUTP) || (item->desc->id == WIFI_AP_ID))
                 {
                     if (!item->data.value)
                     {
@@ -1880,6 +1880,58 @@ static void create_menu_tree(node_t *parent, const menu_desc_t *desc)
                 create_menu_tree(node, &g_menu_desc[i]);
         }
     }
+}
+
+static node_t *get_menu_node_by_ID(uint16_t menu_id)
+{
+    node_t *node = g_menu->first_child->first_child;
+
+    //make sure we have all menu value's updated
+    node_t *child_nodes, *grandchild_nodes;
+    menu_item_t *item_child, *item_grandchild;
+
+    while(node)
+    {
+        item_child = node->data;
+        if (item_child->desc->id == menu_id)
+        {
+            return node;
+        }
+
+        if (node->first_child)
+        {
+            child_nodes = node->first_child;
+            while(child_nodes)
+            {
+                item_child = child_nodes->data;
+                if (item_child->desc->id == menu_id)
+                {
+                    return child_nodes;
+                }
+
+                if (child_nodes->first_child)
+                {
+                    grandchild_nodes = child_nodes->first_child;
+                    while(grandchild_nodes)
+                    {
+                        item_grandchild = grandchild_nodes->data;
+                        if (item_grandchild->desc->id == menu_id)
+                        {
+                            return grandchild_nodes;
+                        }
+
+                        grandchild_nodes = grandchild_nodes->next;
+                    }
+                }
+
+                child_nodes = child_nodes->next;
+            }
+        }
+
+        node = node->next;
+    }
+
+    return NULL;
 }
 
 static void reset_menu_hover(node_t *menu_node)
@@ -3219,6 +3271,11 @@ void naveg_reset_menu(void)
     g_current_main_menu = g_menu;
     g_current_main_item = g_menu->first_child->data;
     reset_menu_hover(g_menu);
+}
+
+menu_item_t *naveg_get_menu_item_by_ID(uint16_t menu_id)
+{
+    return get_menu_node_by_ID(menu_id)->data;
 }
 
 int naveg_need_update(void)

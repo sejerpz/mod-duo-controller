@@ -19,6 +19,10 @@
 #include "utils.h"
 #include "mod-protocol.h"
 
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -489,6 +493,176 @@ void system_bluetooth_cb(void *arg, int event)
         {
             cli_command("mod-bluetooth discovery", CLI_DISCARD_RESPONSE);
         }
+    }
+}
+
+/*
+ * WIFI page: state read from "wifi-ap status" (alabs-mod-wifi project), one line:
+ *   on <ip> <ssid>
+ *   off <ip|none> <ap|noap> [<last error>]
+ *   starting | stopping
+ *   error <reason>
+ */
+enum {WIFI_UNKNOWN, WIFI_NO_DEVICE, WIFI_OFF, WIFI_ON, WIFI_STARTING, WIFI_STOPPING};
+static uint8_t g_wifi_state = WIFI_UNKNOWN;
+static uint8_t g_wifi_ap_supported = 0;
+static char g_wifi_ip_text[16];
+static char g_wifi_status_text[20];
+// reads without an answer in a row, N/A on the page only from WIFI_MAX_TIMEOUTS
+#define WIFI_MAX_TIMEOUTS 3
+static uint8_t g_wifi_timeouts = 0;
+// the menu task (page entered, access point switched) and the displays task (page refresh) both run wifi-ap,
+// and the cli has a single response buffer: one command at a time, its response copied before the next
+static xSemaphoreHandle g_wifi_mutex = NULL;
+
+static void wifi_lock(void)
+{
+    taskENTER_CRITICAL();
+    if (!g_wifi_mutex)
+        g_wifi_mutex = xSemaphoreCreateMutex();
+    taskEXIT_CRITICAL();
+
+    xSemaphoreTake(g_wifi_mutex, portMAX_DELAY);
+}
+
+static void wifi_unlock(void)
+{
+    xSemaphoreGive(g_wifi_mutex);
+}
+
+// value on the right of an item name, cut to fit the line
+static void wifi_set_value(uint16_t menu_id, const char *value)
+{
+    menu_item_t *item = naveg_get_menu_item_by_ID(menu_id);
+    char text[MENU_LINE_CHARS + 1];
+    uint8_t room = MENU_LINE_CHARS - strlen(item->desc->name) - 1;
+
+    strncpy(text, value, room);
+    text[room] = '\0';
+    add_chars_to_menu_name(item, text);
+}
+
+static void wifi_parse_status(char *status)
+{
+    // split "<word> <arg1> <arg2> <arg3>"
+    char *args[3] = {};
+    char *p = status;
+    uint8_t i;
+    for (i = 0; i < 3; i++)
+    {
+        p = strchr(p, ' ');
+        if (!p)
+            break;
+        *p++ = '\0';
+        args[i] = p;
+    }
+
+    if (strcmp(status, "on") == 0 && args[0])
+    {
+        g_wifi_state = WIFI_ON;
+        g_wifi_ap_supported = 1;
+        strncpy(g_wifi_ip_text, args[0], sizeof(g_wifi_ip_text) - 1);
+        strcpy(g_wifi_status_text, "ON ");
+        strncat(g_wifi_status_text, args[1] ? args[1] : "", sizeof(g_wifi_status_text) - 4);
+    }
+    else if (strcmp(status, "off") == 0 && args[0])
+    {
+        g_wifi_state = WIFI_OFF;
+        g_wifi_ap_supported = (args[1] && strcmp(args[1], "ap") == 0);
+
+        if (strcmp(args[0], "none") == 0)
+            strcpy(g_wifi_ip_text, "NOT CONNECTED");
+        else
+            strncpy(g_wifi_ip_text, args[0], sizeof(g_wifi_ip_text) - 1);
+
+        if (!g_wifi_ap_supported)
+            strcpy(g_wifi_status_text, "NOT SUPPORTED");
+        else if (args[2])
+            strcpy(g_wifi_status_text, "FAILED");
+        else
+            strcpy(g_wifi_status_text, "OFF");
+    }
+    else if (strcmp(status, "starting") == 0 || strcmp(status, "stopping") == 0)
+    {
+        g_wifi_state = (status[2] == 'a') ? WIFI_STARTING : WIFI_STOPPING;
+        strcpy(g_wifi_ip_text, "-");
+        strcpy(g_wifi_status_text, (g_wifi_state == WIFI_STARTING) ? "STARTING" : "STOPPING");
+    }
+    else if (strcmp(status, "error") == 0 && args[0] && strcmp(args[0], "no-wifi-device") == 0)
+    {
+        g_wifi_state = WIFI_NO_DEVICE;
+        g_wifi_ap_supported = 0;
+        strcpy(g_wifi_ip_text, "NO DEVICE");
+        strcpy(g_wifi_status_text, "NO WIFI");
+    }
+    else
+    {
+        // no answer, or wifi-ap not installed
+        g_wifi_state = WIFI_UNKNOWN;
+        g_wifi_ap_supported = 0;
+        strcpy(g_wifi_ip_text, "N/A");
+        strcpy(g_wifi_status_text, "N/A");
+    }
+}
+
+static void wifi_read_status(void)
+{
+    char status[LINE_BUFFER_SIZE + 1] = {};
+
+    wifi_lock();
+
+    // the response buffer is reused by the next cli command: copy it
+    const char *response = cli_command_wait("wifi-ap status", CLI_WIFI_RESPONSE_TIMEOUT);
+    if (response)
+    {
+        strncpy(status, response, sizeof(status) - 1);
+        g_wifi_timeouts = 0;
+    }
+
+    // no answer in time on a busy system: keep the last state for a while
+    if (response || g_wifi_state == WIFI_UNKNOWN || ++g_wifi_timeouts >= WIFI_MAX_TIMEOUTS)
+        wifi_parse_status(status);
+
+    wifi_set_value(WIFI_IP_ID, g_wifi_ip_text);
+    wifi_set_value(WIFI_AP_STATUS_ID, g_wifi_status_text);
+
+    menu_item_t *item = naveg_get_menu_item_by_ID(WIFI_AP_ID);
+
+    // the pop-up follows the value: 0 switches the access point on, 1 off
+    item->data.value = (g_wifi_state == WIFI_ON) ? 1 : 0;
+
+    // only switched when on or off: busy, or without access point support, the click does nothing
+    uint8_t can_switch = g_wifi_ap_supported && (g_wifi_state == WIFI_ON || g_wifi_state == WIFI_OFF);
+    item->desc->type = can_switch ? MENU_CONFIRM : MENU_NONE;
+
+    if (!g_wifi_ap_supported)
+        add_chars_to_menu_name(item, "N/A");
+    else
+        add_chars_to_menu_name(item, (g_wifi_state == WIFI_ON || g_wifi_state == WIFI_STARTING) ? "ON" : "OFF");
+
+    wifi_unlock();
+}
+
+// WIFI page: read when entered and refreshed while it is on screen (need_update)
+void system_wifi_cb(void *arg, int event)
+{
+    (void) arg;
+
+    if (event == MENU_EV_ENTER)
+        wifi_read_status();
+}
+
+void system_wifi_ap_cb(void *arg, int event)
+{
+    menu_item_t *item = arg;
+
+    //if clicked and YES was selected from the pop-up
+    if ((event == MENU_EV_ENTER) && (item->data.hover == 0))
+    {
+        // runs in background, the page shows STARTING / STOPPING
+        wifi_lock();
+        cli_command_wait(item->data.value ? "wifi-ap off -b" : "wifi-ap on -b", CLI_WIFI_RESPONSE_TIMEOUT);
+        wifi_unlock();
     }
 }
 

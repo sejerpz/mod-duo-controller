@@ -190,6 +190,7 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define MIDI_ID         (20 * 10)
 #define AUDIO_FRAME_SIZE_ID (21 * 10)
 #define WEB_UI_ID       (22 * 10)
+#define WIFI_ID         (24 * 10)
 
 //pedalboard sub menu
 #define PEDALBOARD_SAVE_ID   PEDALBOARD_ID+2
@@ -230,6 +231,11 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define MIDI_PEDALBOARD     MIDI_ID+5
     
 #define BLUETOOTH_DISCO_ID   BLUETOOTH_ID+2
+
+// WIFI_AP_ID+1 is the pop-up to switch the access point off
+#define WIFI_AP_ID          WIFI_ID+2
+#define WIFI_IP_ID          WIFI_ID+4
+#define WIFI_AP_STATUS_ID   WIFI_ID+5
 
 #define DIALOG_ID           230
 
@@ -280,6 +286,11 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
     {"STATUS:",                         MENU_NONE,      BLUETOOTH_ID+3,     BLUETOOTH_ID,   NULL                       , 0},  \
     {"NAME:",                           MENU_NONE,      BLUETOOTH_ID+4,     BLUETOOTH_ID,   NULL                       , 0},  \
     {"ADDRESS:",                        MENU_NONE,      BLUETOOTH_ID+5,     BLUETOOTH_ID,   NULL                       , 0},  \
+    {"WIFI",                            MENU_LIST,      WIFI_ID,            SYSTEM_ID,      system_wifi_cb             , 1},  \
+    {"< BACK TO SYSTEM",                MENU_RETURN,    WIFI_ID+1,          WIFI_ID,        NULL                       , 0},  \
+    {"ACCESS POINT",                    MENU_CONFIRM,   WIFI_AP_ID,         WIFI_ID,        system_wifi_ap_cb          , 0},  \
+    {"IP ADDRESS",                      MENU_NONE,      WIFI_IP_ID,         WIFI_ID,        NULL                       , 0},  \
+    {"AP STATUS",                       MENU_NONE,      WIFI_AP_STATUS_ID,  WIFI_ID,        NULL                       , 0},  \
     {"DISPLAY BRIGHTNESS",              MENU_TOGGLE,    DISP_BL_ID,         SYSTEM_ID,      system_display_cb          , 0},  \
     {"AUDIO FRAME SIZE",                MENU_TOGGLE,    AUDIO_FRAME_SIZE_ID,SYSTEM_ID,      system_audio_frame_size_cb , 0},  \
     {"DEFAULT WEB INTERFACE",           MENU_CONFIRM,   WEB_UI_ID,          SYSTEM_ID,      system_web_ui_cb           , 0},  \
@@ -316,6 +327,8 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
     {PEDALBOARD_RESET_ID, "Reset pedalboard", "Undo every change made since\nthe last save of the active\npedalboard?"},      \
     {WEB_UI_ID, "Web interface", "Switch the web interface back\nto the default one? It will\nrestart, the pedalboard keeps\nplaying."},      \
     {PEDALBOARD_NEW_ID, "New pedalboard", "Replace the current pedalboard\nwith a new empty one?\nUnsaved changes are lost."},      \
+    {WIFI_AP_ID, "Access point on", "Switch the WiFi access point\non? The WiFi connection\ndrops for a few seconds."},  \
+    {WIFI_AP_ID+1, "Access point off", "Switch the WiFi access point\noff? The WiFi connection\ndrops for a few seconds."},  \
     {BLUETOOTH_DISCO_ID, "Enable Bluetooth", "Bluetooth discovery mode is   now enabled for 2 minutes"},  \
     {UPGRADE_ID, "Start System Upgrade", "To start the system upgrade\nprocess, press and hold down\nthe leftmost button and press\nyes. "}, \
     {PROFILES_ID+1, "Load user profile A", PROFILE_POPUP_LOAD_TXT}, \
@@ -390,6 +403,8 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define CLI_SERIAL                  1
 // defines how much time wait for console response (in milliseconds)
 #define CLI_RESPONSE_TIMEOUT        500
+// wifi-ap takes about 100 ms on an idle device, 200 ms and more with a heavy pedalboard
+#define CLI_WIFI_RESPONSE_TIMEOUT   1000
 
 //volume message timeout in a multiple of 500us
 #define VOL_MESSAGE_TIMEOUT         200
