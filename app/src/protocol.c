@@ -531,9 +531,10 @@ void cb_menu_item_changed(proto_t *proto)
     system_lock_comm_serial(g_protocol_busy);
 
     naveg_menu_item_changed_cb(atoi(proto->list[1]), atoi(proto->list[2]));
-    
+
+    // optional more "id value" pairs: only as many as the message has
     uint8_t i;
-    for (i = 3; i < ((MENU_ID_TOP+1) * 2); i+=2)
+    for (i = 3; i + 1u < proto->list_count && i < ((MENU_ID_TOP+1) * 2); i+=2)
     {
         if (atoi(proto->list[i]) != 0)
         {
