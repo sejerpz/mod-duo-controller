@@ -81,6 +81,7 @@ void system_volume_cb(void *arg, int event);
 void system_save_gains_cb(void *arg, int event);
 void system_banks_cb(void *arg, int event);
 void system_display_cb(void *arg, int event);
+void system_audio_frame_size_cb(void *arg, int event);
 void system_sl_in_cb (void *arg, int event);
 void system_sl_out_cb (void *arg, int event);
 void system_hp_bypass_cb (void *arg, int event);
