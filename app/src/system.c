@@ -1276,3 +1276,37 @@ void system_audio_frame_size_cb(void *arg, int event)
 
     add_chars_to_menu_name(item, str_bfr);
 }
+
+// sends uic (0 asks which interface is active: 1 the default one, 2 another one)
+static int8_t send_web_ui(menu_item_t *item, uint8_t value)
+{
+    char buffer[10];
+    uint8_t i;
+
+    i = copy_command(buffer, CMD_UI_CONFIG);
+    i += int_to_str(value, &buffer[i], sizeof(buffer) - i, 0);
+    buffer[i] = 0;
+
+    item->data.value = 0;
+    comm_webgui_set_response_cb(recieve_web_value, item);
+    comm_webgui_send(buffer, i);
+    comm_webgui_wait_response();
+
+    return (int8_t)item->data.value;
+}
+
+void system_web_ui_cb(void *arg, int event)
+{
+    menu_item_t *item = arg;
+
+    //if clicked and YES was selected from the pop-up
+    if ((event == MENU_EV_ENTER) && (item->data.hover == 0))
+    {
+        // asked now: the interface can be switched from the browser meanwhile
+        if (send_web_ui(item, 0) != 2)
+            return;
+
+        send_web_ui(item, 1);
+        naveg_wait_for_ui();
+    }
+}

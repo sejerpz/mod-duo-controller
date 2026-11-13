@@ -520,6 +520,8 @@ void cb_boot(proto_t *proto)
     //set the current user profile 
     system_update_menu_value(MENU_ID_CURRENT_PROFILE, atoi(proto->list[4]));
 
+    naveg_ui_booted();
+
     protocol_send_response(CMD_RESPONSE, 0, proto);
 }
 

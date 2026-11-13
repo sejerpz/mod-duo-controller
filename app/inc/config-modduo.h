@@ -186,6 +186,7 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define PROFILES_ID     (19 * 10)
 #define MIDI_ID         (20 * 10)
 #define AUDIO_FRAME_SIZE_ID (21 * 10)
+#define WEB_UI_ID       (22 * 10)
 
 //pedalboard sub menu
 #define PEDALBOARD_SAVE_ID   PEDALBOARD_ID+2
@@ -278,6 +279,7 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
     {"ADDRESS:",                        MENU_NONE,      BLUETOOTH_ID+5,     BLUETOOTH_ID,   NULL                       , 0},  \
     {"DISPLAY BRIGHTNESS",              MENU_TOGGLE,    DISP_BL_ID,         SYSTEM_ID,      system_display_cb          , 0},  \
     {"AUDIO FRAME SIZE",                MENU_TOGGLE,    AUDIO_FRAME_SIZE_ID,SYSTEM_ID,      system_audio_frame_size_cb , 0},  \
+    {"DEFAULT WEB INTERFACE",           MENU_CONFIRM,   WEB_UI_ID,          SYSTEM_ID,      system_web_ui_cb           , 0},  \
     {"INFO",                            MENU_LIST,      INFO_ID,            SYSTEM_ID,      NULL                       , 0},  \
     {"< BACK TO SYSTEM",                MENU_RETURN,    INFO_ID+1,          INFO_ID,        NULL                       , 0},  \
     {"SERVICES",                        MENU_LIST,      SERVICES_ID,        INFO_ID,        system_services_cb         , 1},  \
@@ -309,6 +311,7 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
     {BANKS_ID, "Banks", "To access the selected menu\nitem, disconnect from the\ngraphical web interface."}, \
     {PEDALBOARD_SAVE_ID, "Save state", "Save current parameter values\nas the default for the active\npedalboard?"},         \
     {PEDALBOARD_RESET_ID, "Reset state", "Reset all parameter values to\nthe last saved state for the\nactive pedalboard?"},      \
+    {WEB_UI_ID, "Web interface", "Switch the web interface back\nto the default one? It will\nrestart, the pedalboard keeps\nplaying."},      \
     {PEDALBOARD_NEW_ID, "New pedalboard", "Replace the current pedalboard\nwith a new empty one?\nUnsaved changes are lost."},      \
     {BLUETOOTH_DISCO_ID, "Enable Bluetooth", "Bluetooth discovery mode is   now enabled for 2 minutes"},  \
     {UPGRADE_ID, "Start System Upgrade", "To start the system upgrade\nprocess, press and hold down\nthe leftmost button and press\nyes. "}, \

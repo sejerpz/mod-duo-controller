@@ -276,7 +276,7 @@ static void actuators_task(void *pvParameters)
             cli_restore(RESTORE_CHECK_BOOT);
 
         // checks if actuator has successfully taken
-        if (xStatus == pdPASS && cli_restore(RESTORE_STATUS) == LOGGED_ON_SYSTEM)
+        if (xStatus == pdPASS && cli_restore(RESTORE_STATUS) == LOGGED_ON_SYSTEM && !naveg_waiting_for_ui())
         {
             type = actuator_info[0];
             id = actuator_info[1];

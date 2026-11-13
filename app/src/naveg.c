@@ -17,6 +17,7 @@
 #include "semphr.h"
 #include "actuator.h"
 #include "protocol.h"
+#include "images.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -110,6 +111,7 @@ static uint8_t g_scroll_dir = 1;
 
 // only enabled after "boot" command received
 bool g_should_wait_for_webgui = false;
+static bool g_waiting_for_ui = false;
 bool g_pedalboards_need_update = false;
 
 /*
@@ -127,6 +129,7 @@ static void foot_control_rm(uint8_t hw_id);
 static uint8_t bank_config_check(uint8_t foot);
 static void bank_config_update(uint8_t bank_func_idx);
 static void bank_config_footer(void);
+static void draw_control_screen(uint8_t display);
 
 
 /*
@@ -2262,6 +2265,44 @@ void naveg_initial_state(uint16_t max_menu, uint16_t page_min, uint16_t page_max
     }
 }
 
+void naveg_wait_for_ui(void)
+{
+    g_waiting_for_ui = true;
+
+    // the menu is left first: menu_enter does not redraw it once the tool is off
+    if (tool_is_on(DISPLAY_TOOL_SYSTEM))
+        naveg_toggle_tool(DISPLAY_TOOL_SYSTEM, 0);
+
+    uint8_t i;
+    for (i = 0; i < LEDS_COUNT; i++)
+    {
+        led_blink(hardware_leds(i), 0, 0);
+        led_set_color(hardware_leds(i), BLACK);
+    }
+
+    screen_clear(0);
+    screen_clear(1);
+    screen_image(0, mod_logo);
+    screen_image(1, mod_duo);
+}
+
+uint8_t naveg_waiting_for_ui(void)
+{
+    return g_waiting_for_ui;
+}
+
+void naveg_ui_booted(void)
+{
+    if (!g_waiting_for_ui) return;
+
+    g_waiting_for_ui = false;
+
+    screen_clear(0);
+    screen_clear(1);
+    draw_control_screen(0);
+    draw_control_screen(1);
+}
+
 void naveg_ui_connection(uint8_t status)
 {
     if (!g_initialized) return;
@@ -2801,6 +2842,24 @@ void naveg_foot_change(uint8_t foot, uint8_t pressed)
 }
 
 
+// draws a display in control mode: control, top bar, index and footer
+static void draw_control_screen(uint8_t display)
+{
+    // draws the control
+    screen_encoder(display, g_controls[display]);
+
+    //draw the top bar
+    display ? screen_ss_name(NULL, 0) : screen_pb_name(NULL, 0);
+
+    //draw the index (do not update values)
+    naveg_set_index(0, display, 0, 0);
+
+    // checks the function assigned to foot and update the footer
+    if (bank_config_check(display)) bank_config_footer();
+    else if (g_foots[display]) foot_control_add(g_foots[display]);
+    else screen_footer(display, NULL, NULL, 0);
+}
+
 void naveg_toggle_tool(uint8_t tool, uint8_t display)
 {
     if (!g_initialized) return;
@@ -2907,41 +2966,12 @@ void naveg_toggle_tool(uint8_t tool, uint8_t display)
         //clear previous commands in the buffer
         comm_webgui_clear();
 
-        control_t *control = g_controls[display];
-
-        // draws the control
-        screen_encoder(display, control);
-
-        //draw the top bar
-        display ? screen_ss_name(NULL, 0) : screen_pb_name(NULL, 0);
-
-        //draw the index (do not update values)
-        naveg_set_index(0, display, 0, 0);
-
-        // checks the function assigned to foot and update the footer
-        if (bank_config_check(display)) bank_config_footer();
-        else if (g_foots[display]) foot_control_add(g_foots[display]);
-        else screen_footer(display, NULL, NULL, 0);
+        draw_control_screen(display);
 
         if (tool == DISPLAY_TOOL_SYSTEM)
         {
             screen_clear(1);
-            control = g_controls[1];
-            display = 1; 
-     
-            // draws the control
-            screen_encoder(display, control);
-
-            //draw the top bar
-            screen_ss_name(NULL, 0);
-    
-            //draw the index (do not update values)
-            naveg_set_index(0, display, 0, 0);
-
-            // checks the function assigned to foot and update the footer
-            if (bank_config_check(display)) bank_config_footer();
-            else if (g_foots[display]) foot_control_add(g_foots[display]);
-            else screen_footer(display, NULL, NULL, 0);
+            draw_control_screen(1);
         }
     }
 }
