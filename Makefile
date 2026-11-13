@@ -4,6 +4,10 @@ PRJNAME = mod-controller
 # toolchain configuration
 TOOLCHAIN_PREFIX = arm-none-eabi-
 
+# Config
+# Enable SEMIHOST debug: librdimon
+# ENABLE_SEMIHOST
+
 ifeq ($(CCC_ANALYZER_OUTPUT_FORMAT),)
 # cpu configuration
 THUMB = -mthumb
@@ -61,6 +65,9 @@ CFLAGS += -Wa,-adhlns=$(addprefix $(OUT_DIR)/, $(notdir $(addsuffix .lst, $(base
 CFLAGS += -MMD -MP -MF $(OUT_DIR)/dep/$(@F).d
 CFLAGS += -I. $(patsubst %,-I%,$(INC))
 CFLAGS += -D$(CPU_SERIE)
+ifneq ($(ENABLE_SEMIHOST),)
+CFLAGS += -DENABLE_SEMIHOST
+endif
 CFLAGS += -O2
 CFLAGS += -fcommon
 
@@ -68,8 +75,15 @@ CFLAGS += -fcommon
 # Linker flags
 LDFLAGS = -Wl,-Map=$(OUT_DIR)/$(PRJNAME).map,--cref
 ifeq ($(CCC_ANALYZER_OUTPUT_FORMAT),)
-LDFLAGS += -specs=rdimon.specs
-LDFLAGS += -Wl,--start-group -lgcc -lc -lm -lrdimon -Wl,--end-group
+
+ifeq ($(ENABLE_SEMIHOST),)
+LDFLAGS += -specs=nano.specs -specs=nosys.specs
+else
+# semihosting debugger support
+LDFLAGS += -specs=rdimon.specs -lrdimon
+endif
+
+LDFLAGS += -Wl,--start-group -lgcc -lc -lm -Wl,--end-group
 else
 LDFLAGS += -lm
 endif

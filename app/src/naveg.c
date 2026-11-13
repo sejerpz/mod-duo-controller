@@ -1622,11 +1622,12 @@ static void menu_enter(uint8_t display_id)
                     else if (item->data.value ==4) profile_char = "D";
                     else profile_char = "X";
 
-                    char *txt =  g_menu_popups[i].popup_header;
-                    char * str3 = (char *) MALLOC(1 + strlen(txt)+ strlen(profile_char) );
-                    strcpy(str3, txt);
-                    strcat(str3, profile_char);
-                    item->data.popup_header = (str3);
+                    // a static buffer stops the leak on every enter
+                    static char save_profile_header[32];
+                    strncpy(save_profile_header, g_menu_popups[i].popup_header, sizeof(save_profile_header) - 2);
+                    save_profile_header[sizeof(save_profile_header) - 2] = '\0';
+                    strcat(save_profile_header, profile_char);
+                    item->data.popup_header = save_profile_header;
 
                 }
                 //cv toggle popups
