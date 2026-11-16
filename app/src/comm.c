@@ -158,8 +158,28 @@ void comm_webgui_wait_response(void)
     while (g_webgui_blocked);
 }
 
+/*
+ * The same wait, in two halves, for a caller that does something while it lasts -- the
+ * builder puts a notice up when the host is slow. Nothing to begin: the flag went up when
+ * the command was sent.
+ */
+void comm_webgui_wait_begin(void)
+{
+}
+
+uint8_t comm_webgui_wait_pending(void)
+{
+    return g_webgui_blocked;
+}
+
 //clear the ringbuffer
 void comm_webgui_clear(void)
 {
     ringbuff_flush(g_webgui_rx_rb);
+}
+
+//clear the tx buffer
+void comm_webgui_clear_tx_buffer(void)
+{
+    serial_flush_tx_buffer(WEBGUI_SERIAL);
 }
