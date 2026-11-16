@@ -8,6 +8,7 @@ extern uint8_t _pvHeapEnd[];
 extern uint8_t _vStackTop[];
 extern uint8_t __top_SRAM[];
 extern uint8_t __top_SRAM0[];
+extern uint8_t _pvHeap2Start[];
 
 /* symbols holding VALUES (sizes computed by the linker) */
 extern uint32_t __stack_size;

@@ -19,6 +19,7 @@
 #include "system.h"
 #include "cli.h"
 #include "mod-protocol.h"
+#include "mode_builder.h"
 
 /*
 ************************************************************************************************************************
@@ -286,6 +287,8 @@ void protocol_init(void)
     protocol_add_command(CMD_PEDALBOARD_CLEAR, cb_pedalboard_clear);
     protocol_add_command(CMD_PEDALBOARD_LOADING_BEGIN, cb_pedalboard_load_begin);
     protocol_add_command(CMD_PEDALBOARD_LOADING_END, cb_pedalboard_load_end);
+    protocol_add_command(CMD_BUILDER_PLUGIN_UPDATED, cb_plugin_map_updated);
+    protocol_add_command(CMD_BUILDER_CONTROL_SET, cb_builder_control_set);
     protocol_add_command(CMD_PEDALBOARD_NAME_SET, cb_pedalboard_name);
     protocol_add_command(CMD_PEDALBOARD_CHANGE, cb_pedalboard_change);
     protocol_add_command(CMD_SNAPSHOT_NAME_SET, cb_snapshot_name);
@@ -397,7 +400,9 @@ void cb_control_add(proto_t *proto)
 
     control_t *control = data_parse_control(proto->list);
 
-    naveg_add_control(control, 1);
+    // a page of parameters the builder asked for comes with the hw_ids of the real actuators
+    if (!BM_add_control(control))
+        naveg_add_control(control, 1);
 
     g_protocol_busy = false;
     system_lock_comm_serial(g_protocol_busy);
@@ -508,6 +513,9 @@ void cb_restore(proto_t *proto)
 void cb_boot(proto_t *proto)
 {
     g_should_wait_for_webgui = true;
+
+    // the host has come back up and knows nothing of a builder it was showing
+    BM_drop(1);
     
     //set the display brightness 
     system_update_menu_value(MENU_ID_BRIGHTNESS, atoi(proto->list[1]));
@@ -569,9 +577,18 @@ void cb_pedalboard_clear(proto_t *proto)
 }
 
 // the host brackets every pedalboard load with these; nothing on the HMI reacts to them yet
+/*
+ * The two edges of a pedalboard load, whoever asked for it. Everything between them is a
+ * board in pieces, so the builder, which is a view onto the board, is left rather than
+ * redrawn around a graph that no longer holds.
+ */
 void cb_pedalboard_load_begin(proto_t *proto)
 {
     protocol_send_response(CMD_RESPONSE, 0, proto);
+
+    // the host stops watching the board on its own when a load starts, so this leaves
+    // without saying anything: nothing may be sent from inside a callback
+    BM_drop(1);
 }
 
 void cb_pedalboard_load_end(proto_t *proto)
@@ -580,6 +597,28 @@ void cb_pedalboard_load_end(proto_t *proto)
 
     // WiFi icon of the title: read by the displays task, the cli is not used from here
     system_wifi_request_check();
+
+    // a NEW PEDALBOARD from the menu goes on into the builder, now that it is loaded
+    BM_pedalboard_loaded();
+}
+
+/*
+ * The board changed under the builder -- edited from the web UI, most of the time. Only a
+ * flag here: fetching the graph is a command of its own, and a callback cannot send one.
+ */
+void cb_plugin_map_updated(proto_t *proto)
+{
+    protocol_send_response(CMD_RESPONSE, 0, proto);
+
+    BM_plugin_map_stale();
+}
+
+// a value of the builder's parameter page changed on the host, by a preset load most of the time
+void cb_builder_control_set(proto_t *proto)
+{
+    BM_set_control(atoi(proto->list[1]), atof(proto->list[2]));
+
+    protocol_send_response(CMD_RESPONSE, 0, proto);
 }
 
 void cb_pedalboard_name(proto_t *proto)

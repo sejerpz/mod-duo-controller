@@ -134,6 +134,14 @@ void naveg_wait_for_ui(void);
 uint8_t naveg_waiting_for_ui(void);
 // boot received: if the web interface was restarting, the control view comes back
 void naveg_ui_booted(void);
+// the builder over the menu, and the builder having given the panel back to it
+void naveg_builder_enter(void);
+void naveg_builder_left(void);
+// the end of a press on an encoder
+void naveg_encoder_released(uint8_t encoder);
+// a footswitch clicked or held, which only the builder listens to
+void naveg_foot_clicked(uint8_t foot);
+void naveg_foot_held(uint8_t foot);
 void naveg_set_index(uint8_t update, uint8_t display, uint8_t new_index, uint8_t new_index_count);
 //refreshes screen with current menu item
 void naveg_settings_refresh(uint8_t display_id);

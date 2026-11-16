@@ -26,6 +26,7 @@
 #include "comm.h"
 #include "images.h"
 #include "fonts.h"
+#include "mode_builder.h"
 
 
 /*
@@ -235,6 +236,9 @@ static void displays_task(void *pvParameters)
         glcd_update(hardware_glcds(i));
         if (++i == GLCD_COUNT) i = 0;
 
+        //the builder refetches a graph the host changed, from here where it may send a command
+        BM_tick();
+
         //check if nav mode needs update
         if (naveg_get_pb_list_update()){
             naveg_update_pb_list();
@@ -297,12 +301,21 @@ static void actuators_task(void *pvParameters)
                 }
                 if (BUTTON_HOLD(status))
                 {   
-                    if (id == DISPLAY_TOOL_TUNER)
+                    // an encoder hold is the builder's while it is up, not the menu's
+                    if (BM_is_active())
+                    {
+                        BM_encoder_hold(id);
+                    }
+                    else if (id == DISPLAY_TOOL_TUNER)
                     {
                         if (!naveg_is_tool_mode(DISPLAY_TOOL_SYSTEM)) naveg_toggle_tool(id, id);
                     }
                     else naveg_toggle_tool(id, id);
                     
+                }
+                if (BUTTON_RELEASED(status))
+                {
+                    naveg_encoder_released(id);
                 }
                 if (ENCODER_TURNED_CW(status))
                 {
@@ -319,14 +332,28 @@ static void actuators_task(void *pvParameters)
             // footswitches
             else if (type == BUTTON)
             {
-               if (BUTTON_PRESSED(status))
+                // A hold comes with the pressed flag still up, and is no second press. Only the
+                // builder tells a click from a hold.
+                if (BUTTON_HOLD(status))
                 {
-                    naveg_foot_change(id, 1);
+                    naveg_foot_held(id);
                 }
-                
-                if (BUTTON_RELEASED(status))
+                else
                 {
-                    naveg_foot_change(id, 0);
+                    if (BUTTON_PRESSED(status))
+                    {
+                        naveg_foot_change(id, 1);
+                    }
+
+                    if (BUTTON_RELEASED(status))
+                    {
+                        naveg_foot_change(id, 0);
+                    }
+
+                    if (BUTTON_CLICKED(status))
+                    {
+                        naveg_foot_clicked(id);
+                    }
                 }
             }
 

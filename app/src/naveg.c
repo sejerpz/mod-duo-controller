@@ -18,6 +18,7 @@
 #include "actuator.h"
 #include "protocol.h"
 #include "images.h"
+#include "mode_builder.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -1525,6 +1526,13 @@ static void menu_enter(uint8_t display_id)
         else if (g_current_main_item->desc->action_cb) g_current_main_item->desc->action_cb(g_current_main_item, MENU_EV_ENTER);
     }
 
+    // the builder takes both displays over the menu, which stays on underneath
+    if (item->desc->id == PEDALBOARD_EDIT_ID)
+    {
+        naveg_builder_enter();
+        return;
+    }
+
     // FIXME: that's dirty, so dirty...
     if (item->desc->id == BANKS_ID)
     {
@@ -2269,6 +2277,8 @@ void naveg_init(void)
     // first xSemaphoreTake pass even if semaphore has not been given
     // http://sourceforge.net/p/freertos/discussion/382005/thread/04bfabb9
     xSemaphoreTake(g_dialog_sem, 0);
+
+    BM_init();
 }
 
 void naveg_initial_state(uint16_t max_menu, uint16_t page_min, uint16_t page_max, char *bank_uid, char *pedalboard_uid, char **pedalboards_list)
@@ -2373,6 +2383,60 @@ void naveg_ui_booted(void)
     draw_control_screen(1);
 }
 
+/*
+ * The builder over the menu, which stays on underneath: from EDIT PEDALBOARD, and once a NEW
+ * PEDALBOARD asked for from the menu has loaded -- if the menu is still there.
+ */
+void naveg_builder_enter(void)
+{
+    if (!tool_is_on(DISPLAY_TOOL_SYSTEM) || BM_is_active()) return;
+
+    // nothing of the menu redraws itself over the builder
+    g_update_cb = NULL;
+    g_update_data = NULL;
+
+    BM_enter();
+}
+
+/*
+ * The builder is gone and the menu it was opened from is still on underneath: put it back
+ * on both displays.
+ */
+void naveg_builder_left(void)
+{
+    if (!tool_is_on(DISPLAY_TOOL_SYSTEM)) return;
+
+    screen_system_menu(g_current_main_item);
+    screen_system_menu(g_current_item);
+}
+
+// the end of a press on an encoder
+void naveg_encoder_released(uint8_t encoder)
+{
+    if (BM_is_active()) BM_encoder_released(encoder);
+}
+
+/*
+ * The Duo has no buttons for the builder, so its footswitches stand in for them: the first
+ * is BACK, the second ADD when clicked and DEL when held.
+ */
+void naveg_foot_clicked(uint8_t foot)
+{
+    if (!BM_is_active()) return;
+
+    if (foot == 0) BM_button_pressed(BM_BUTTON_BACK);
+    else if (foot == 1) BM_button_pressed(BM_BUTTON_ADD);
+}
+
+void naveg_foot_held(uint8_t foot)
+{
+    if (!BM_is_active()) return;
+
+    // a held BACK is still a BACK, the click being cancelled by the hold
+    if (foot == 0) BM_button_pressed(BM_BUTTON_BACK);
+    else if (foot == 1) BM_button_pressed(BM_BUTTON_DEL);
+}
+
 void naveg_ui_connection(uint8_t status)
 {
     if (!g_initialized) return;
@@ -2394,6 +2458,8 @@ void naveg_ui_connection(uint8_t status)
         g_naveg_pedalboards = NULL;
     }
 
+    // called from a protocol callback: the builder goes without a word to the host
+    BM_drop(0);
 
     if ((tool_is_on(DISPLAY_TOOL_NAVIG)) || tool_is_on(DISPLAY_TOOL_SYSTEM))
     {
@@ -2847,6 +2913,9 @@ void naveg_foot_change(uint8_t foot, uint8_t pressed)
     // checks the foot id
     if (foot >= FOOTSWITCHES_COUNT) return;
 
+    // the footswitches are the builder's while it is up, see naveg_foot_clicked()
+    if (BM_is_active()) return;
+
     if (display_has_tool_enabled(get_display_by_id(foot, FOOT))) return;
 
     // checks if the foot is used like bank function
@@ -3152,6 +3221,12 @@ void naveg_enter(uint8_t display)
 {
     if ((!g_initialized)&&(g_update_cb)) return;
 
+    if (BM_is_active())
+    {
+        BM_encoder_click(display);
+        return;
+    }
+
     if (display_has_tool_enabled(display))
     {
         if (display == 0)
@@ -3186,6 +3261,12 @@ void naveg_enter(uint8_t display)
 void naveg_up(uint8_t display)
 {
     if (!g_initialized) return;
+
+    if (BM_is_active())
+    {
+        BM_up(display);
+        return;
+    }
     if (display_has_tool_enabled(display))
     {
         if (display == 0)
@@ -3230,6 +3311,12 @@ void naveg_up(uint8_t display)
 void naveg_down(uint8_t display)
 {
     if (!g_initialized) return;
+
+    if (BM_is_active())
+    {
+        BM_down(display);
+        return;
+    }
 
     if (display_has_tool_enabled(display))
     {

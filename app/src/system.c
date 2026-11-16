@@ -9,6 +9,7 @@
 #include "config.h"
 #include "data.h"
 #include "naveg.h"
+#include "mode_builder.h"
 #include "hardware.h"
 #include "actuator.h"
 #include "comm.h"
@@ -453,7 +454,10 @@ void system_pedalboard_cb(void *arg, int event)
                 break;
 
             case PEDALBOARD_NEW_ID:
-                // the host answers first and loads the new pedalboard right after
+                // the host answers first and loads the new pedalboard right after; the
+                // builder opens on it once that load is over, there being nothing else to
+                // do with an empty board
+                BM_enter_after_load();
                 comm_webgui_set_response_cb(NULL, NULL);
                 comm_webgui_send(CMD_PEDALBOARD_NEW, strlen(CMD_PEDALBOARD_NEW));
                 comm_webgui_wait_response();

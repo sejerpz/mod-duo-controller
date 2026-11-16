@@ -109,6 +109,8 @@ void cb_menu_item_changed(proto_t *proto);
 void cb_pedalboard_clear(proto_t *proto);
 void cb_pedalboard_load_begin(proto_t *proto);
 void cb_pedalboard_load_end(proto_t *proto);
+void cb_plugin_map_updated(proto_t *proto);
+void cb_builder_control_set(proto_t *proto);
 void cb_pedalboard_name(proto_t *proto);
 void cb_pedalboard_change(proto_t *proto);
 void cb_snapshot_name(proto_t *proto);

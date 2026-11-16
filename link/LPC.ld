@@ -98,6 +98,8 @@ SECTIONS
     {
     	*(.bss.$RAM2*)
     	*(.bss.$SRAM0*)
+       /* the builder's state does not fit in SRAM next to the rest, so it lives here */
+       *mode_builder*.o(.bss .bss.* COMMON)
        . = ALIGN(4) ;
     } > SRAM0
 
@@ -117,7 +119,9 @@ SECTIONS
     {
     	*(.noinit.$RAM2*)
     	*(.noinit.$SRAM0*)
-       . = ALIGN(4) ;
+       . = ALIGN(8) ;
+       /* the second heap region: what SRAM0 has left after the sections above */
+       PROVIDE(_pvHeap2Start = .);
     } > SRAM0 
 
     /* DEFAULT NOINIT SECTION */
@@ -151,4 +155,5 @@ SECTIONS
      * If this fails, the linker will throw an error during compilation.
      */
     ASSERT(_pvHeapStart < _pvHeapEnd, "Region SRAM overflowed: Not enough space for Heap and Stack")
+    ASSERT(_pvHeap2Start < __top_SRAM0, "Region SRAM0 overflowed: no space left for the heap")
 }

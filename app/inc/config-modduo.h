@@ -196,6 +196,7 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define PEDALBOARD_SAVE_ID   PEDALBOARD_ID+2
 #define PEDALBOARD_RESET_ID  PEDALBOARD_ID+3
 #define PEDALBOARD_NEW_ID    PEDALBOARD_ID+4
+#define PEDALBOARD_EDIT_ID   PEDALBOARD_ID+5
 
 //bypass sub menu
 #define BP1_ID              BYPASS_ID + 1
@@ -243,6 +244,7 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
     {"SETTINGS",                        MENU_LIST,      ROOT_ID,            -1,             NULL                       , 0},  \
     {"BANKS",                           MENU_SET,       BANKS_ID,           ROOT_ID,        system_banks_cb            , 0},  \
     {"CURRENT PEDALBOARD",              MENU_LIST,      PEDALBOARD_ID,      ROOT_ID,        NULL                       , 0},  \
+    {"EDIT PEDALBOARD",                 MENU_NONE,      PEDALBOARD_EDIT_ID, PEDALBOARD_ID,  NULL                       , 0},  \
     {"SAVE PEDALBOARD",                 MENU_CONFIRM,   PEDALBOARD_SAVE_ID, PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \
     {"RESET PEDALBOARD",                MENU_CONFIRM,   PEDALBOARD_RESET_ID,PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \
     {"NEW PEDALBOARD",                  MENU_CONFIRM,   PEDALBOARD_NEW_ID,  PEDALBOARD_ID,  system_pedalboard_cb       , 0},  \

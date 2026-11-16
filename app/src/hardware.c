@@ -33,7 +33,7 @@
 HeapRegion_t xHeapRegions[] =
 {
     { ( uint8_t * ) 0x10005000, 0x2000 }, // updated from the linker symbols in hardware_setup
-    { ( uint8_t * ) 0x2007c000, 0x8000 }, // 32KB AHB SRAM
+    { ( uint8_t * ) 0x2007c000, 0x8000 }, // 32KB AHB SRAM, less what the linker put there
     { NULL, 0 } /* Terminates the array. */
 };
 
@@ -157,6 +157,8 @@ void hardware_setup(void)
     // the first region is whatever SRAM the linker left between the data and the main stack
     xHeapRegions[0].pucStartAddress = (uint8_t *)_pvHeapStart;
     xHeapRegions[0].xSizeInBytes = (size_t)(_pvHeapEnd - _pvHeapStart);
+    xHeapRegions[1].pucStartAddress = (uint8_t *)_pvHeap2Start;
+    xHeapRegions[1].xSizeInBytes = (size_t)(__top_SRAM0 - _pvHeap2Start);
 
     //Pass the array into vPortDefineHeapRegions().
     vPortDefineHeapRegions( xHeapRegions );
@@ -188,6 +190,8 @@ void hardware_setup(void)
         // actuators properties
         actuator_set_prop(hardware_actuators(ENCODER0 + i), ENCODER_STEPS, 4);
         actuator_set_prop(hardware_actuators(ENCODER0 + i), BUTTON_HOLD_TIME, TOOL_MODE_TIME);
+        // for the builder, the only one to tell a footswitch click from a hold
+        actuator_set_prop(hardware_actuators(FOOTSWITCH0 + i), BUTTON_HOLD_TIME, TOOL_MODE_TIME);
     }
 
     // default glcd brightness
