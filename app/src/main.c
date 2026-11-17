@@ -223,6 +223,36 @@ static void procotol_task(void *pvParameters)
     }
 }
 
+// the 8 pages of a display to mod-ui, which saves them as a PNG: "screenshot <page> <128 bytes in hex>", the
+// bytes left to right, each one 8 rows with the top one in bit 0
+static void send_screenshot(uint8_t display)
+{
+    static const char hex_lookup[] = "0123456789abcdef";
+    static char msg[16 + DISPLAY_WIDTH * 2];
+    const glcd_t *glcd = hardware_glcds(display);
+
+    comm_webgui_set_response_cb(NULL, NULL);
+
+    for (uint8_t page = 0; page < DISPLAY_HEIGHT / 8; page++)
+    {
+        uint32_t i = copy_command(msg, CMD_SCREENSHOT);
+        msg[i++] = '0' + page;
+        msg[i++] = ' ';
+
+        // the driver keeps the columns mirrored
+        for (uint8_t x = 0; x < DISPLAY_WIDTH; x++)
+        {
+            uint8_t data = glcd->buffer[page][(DISPLAY_WIDTH - 1) - x];
+            msg[i++] = hex_lookup[data >> 4];
+            msg[i++] = hex_lookup[data & 0xF];
+        }
+        msg[i] = 0;
+
+        comm_webgui_send(msg, i);
+        comm_webgui_wait_response();
+    }
+}
+
 static void displays_task(void *pvParameters)
 {
     UNUSED_PARAM(pvParameters);
@@ -238,6 +268,13 @@ static void displays_task(void *pvParameters)
 
         //the builder refetches a graph the host changed, from here where it may send a command
         BM_tick();
+
+        //a screenshot asked by mod-ui
+        if (g_screenshot)
+        {
+            send_screenshot(g_screenshot - 1);
+            g_screenshot = 0;
+        }
 
         //check if nav mode needs update
         if (naveg_get_pb_list_update()){

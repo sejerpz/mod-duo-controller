@@ -114,6 +114,10 @@ void cb_builder_control_set(proto_t *proto);
 void cb_pedalboard_name(proto_t *proto);
 void cb_pedalboard_change(proto_t *proto);
 void cb_snapshot_name(proto_t *proto);
+void cb_screenshot(proto_t *proto);
+
+// the display asked by the last screenshot command, one based, 0 when none is pending
+extern volatile uint8_t g_screenshot;
 
 /*
 ************************************************************************************************************************
