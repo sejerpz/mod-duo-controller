@@ -22,8 +22,9 @@
 */
 
 // check in hardware_setup() what is the function of each timer
+// TIMER0 (LEDs PWM) calls no FreeRTOS API: it can stay above configMAX_SYSCALL_INTERRUPT_PRIORITY, TIMER1 (actuators) cannot
 #define TIMER0_PRIORITY     3
-#define TIMER1_PRIORITY     2
+#define TIMER1_PRIORITY     6
 
 /*
 ************************************************************************************************************************
