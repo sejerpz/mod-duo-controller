@@ -395,7 +395,7 @@ static void setup_task(void *pvParameters)
     xTaskCreate(procotol_task, TASK_NAME("proto"), 512, NULL, 4, NULL);
     xTaskCreate(actuators_task, TASK_NAME("act"), 256, NULL, 3, NULL);
     xTaskCreate(cli_task, TASK_NAME("cli"), 128, NULL, 2, NULL);
-    xTaskCreate(displays_task, TASK_NAME("disp"), 128, NULL, 1, NULL);
+    xTaskCreate(displays_task, TASK_NAME("disp"), 256, NULL, 1, NULL);
 
     // actuators callbacks
     uint8_t i;
@@ -576,10 +576,14 @@ void vApplicationMallocFailedHook(void)
 void vApplicationStackOverflowHook(xTaskHandle *pxTask, signed portCHAR *pcTaskName)
 {
     UNUSED_PARAM(pxTask);
-    glcd_t *glcd0 =  hardware_glcds(0);
-    glcd_clear(glcd0, GLCD_WHITE);
-    glcd_text(glcd0, 0, 0, "stack overflow", NULL, GLCD_BLACK);
-    glcd_text(glcd0, 0, 10, (const char *) pcTaskName, NULL, GLCD_BLACK);
-    glcd_update(glcd0);
+    UNUSED_PARAM(pcTaskName);
+
+    // called at a context switch, while the task that overflowed is still the current one: its name goes on the screen
+    uint32_t frame[8] = {0};
+    frame[5] = (uint32_t)__builtin_return_address(0);
+    frame[6] = (uint32_t)&vApplicationStackOverflowHook;
+
+    crash_screen("STACK OVF", frame, 1);
+    led_set_color(hardware_leds(1), MAGENTA);
     while (1);
 }
