@@ -225,6 +225,8 @@ static void procotol_task(void *pvParameters)
 
 // the 8 pages of a display to mod-ui, which saves them as a PNG: "screenshot <page> <128 bytes in hex>", the
 // bytes left to right, each one 8 rows with the top one in bit 0
+#define SCREENSHOT_CHUNK 32
+
 static void send_screenshot(uint8_t display)
 {
     static const char hex_lookup[] = "0123456789abcdef";
@@ -248,7 +250,17 @@ static void send_screenshot(uint8_t display)
         }
         msg[i] = 0;
 
-        comm_webgui_send(msg, i);
+        // At 1.5 Mbaud the SoC of the Duo overruns on a page sent in one go, and the line is lost to
+        // the NULs Linux puts in place of the bytes it missed: a piece at a time, with a pause between.
+        uint32_t sent;
+        for (sent = 0; i - sent > SCREENSHOT_CHUNK; sent += SCREENSHOT_CHUNK)
+        {
+            serial_send(WEBGUI_SERIAL, (const uint8_t *)&msg[sent], SCREENSHOT_CHUNK);
+            vTaskDelay(1);
+        }
+
+        // the last piece with the terminator, and the wait for the answer
+        comm_webgui_send(&msg[sent], i - sent);
         comm_webgui_wait_response();
     }
 }
