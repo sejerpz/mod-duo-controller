@@ -133,6 +133,10 @@ static char g_params_title[PLUGIN_MAP_TITLE_SIZE];
 static volatile uint8_t g_receiving_controls;
 static portTickType g_receiving_stamp;
 
+/* the control_adds of a page given up before they all came, and when it was asked for */
+static volatile uint8_t g_discarding_controls;
+static portTickType g_discarding_stamp;
+
 /* when the host last sent a control_add, ours or not */
 static volatile portTickType g_last_add_stamp;
 
@@ -622,17 +626,33 @@ static void params_free_page(void)
 {
     uint8_t i;
 
+    /*
+     * What is still on its way belongs to a page nobody is looking at, and is eaten as it
+     * comes: let through, it would land on the actuators with the hw_ids of the page -- on
+     * the Duo, ids past the four the panel has. In one go, so the protocol task cannot take
+     * one as ours in between.
+     */
+    taskENTER_CRITICAL();
+    if (g_receiving_controls)
+    {
+        g_discarding_controls += g_receiving_controls;
+        g_discarding_stamp = g_receiving_stamp;
+        g_receiving_controls = 0;
+    }
+    taskEXIT_CRITICAL();
+
     for (i = 0; i < BM_PARAM_ROWS; i++)
     {
-        if (g_params.controls[i]) data_free_control(g_params.controls[i]);
+        // off the page before it is freed: BM_set_control() reads it from the protocol task
+        control_t *control = g_params.controls[i];
+
         g_params.controls[i] = NULL;
+        if (control) data_free_control(control);
     }
 }
 
 static void params_clear(void)
 {
-    // what is still on its way belongs to a page nobody is looking at
-    g_receiving_controls = 0;
     params_free_page();
     g_params.total = 0;
     g_params.first = 0;
@@ -1643,7 +1663,22 @@ uint8_t BM_add_control(control_t *control)
 {
     g_last_add_stamp = xTaskGetTickCount();
 
-    if (!g_receiving_controls || !control || control->hw_id >= BM_PARAM_ROWS) return 0;
+    if (!control || control->hw_id >= BM_PARAM_ROWS) return 0;
+
+    // the rest of a page given up on comes first: mod-ui sends them in the order asked for
+    if (g_discarding_controls)
+    {
+        if ((xTaskGetTickCount() - g_discarding_stamp) < (PARAMS_RECEIVE_TIMEOUT / portTICK_RATE_MS))
+        {
+            g_discarding_controls--;
+            data_free_control(control);
+            return 1;
+        }
+
+        g_discarding_controls = 0;
+    }
+
+    if (!g_receiving_controls) return 0;
 
     if ((xTaskGetTickCount() - g_receiving_stamp) >= (PARAMS_RECEIVE_TIMEOUT / portTICK_RATE_MS))
     {

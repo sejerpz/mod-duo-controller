@@ -2487,6 +2487,14 @@ void naveg_add_control(control_t *control, uint8_t protocol)
     if (!g_initialized) return;
     if (!control) return;
 
+    // the Duo has two encoders and two footswitches: anything past them would be written
+    // beyond g_foots
+    if (control->hw_id >= TOTAL_ACTUATORS)
+    {
+        data_free_control(control);
+        return;
+    }
+
     // first tries remove the control
     naveg_remove_control(control->hw_id);
 
