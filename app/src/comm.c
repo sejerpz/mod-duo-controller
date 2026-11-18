@@ -12,6 +12,7 @@
 #include "serial.h"
 
 #include "FreeRTOS.h"
+#include "task.h"
 #include "semphr.h"
 /*
 ************************************************************************************************************************
@@ -186,9 +187,17 @@ void comm_webgui_response_cb(void *data)
 }
 
 // the flag went up when the command was sent, see comm_webgui_send()
+// A tick at a time: a spin would keep the tasks below the caller off the processor until mod-ui
+// answers, the display task among them, and a display only it sends would freeze while a knob turns.
 void comm_webgui_wait_response(void)
 {
-    while (g_webgui_blocked);
+    const uint8_t can_sleep = xTaskGetSchedulerState() == taskSCHEDULER_RUNNING;
+
+    while (g_webgui_blocked)
+    {
+        if (can_sleep)
+            vTaskDelay(1);
+    }
 }
 
 /*
