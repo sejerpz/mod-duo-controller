@@ -638,6 +638,8 @@ __attribute__((naked)) void UsageFault_Handler(void)
 
 void vApplicationMallocFailedHook(void)
 {
+    if (g_malloc_can_fail) return;
+
     // not an exception: there is no stacked frame, build one with who asked for memory
     uint32_t frame[8] = {0};
     frame[5] = (uint32_t)__builtin_return_address(0);

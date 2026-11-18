@@ -442,6 +442,9 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #include "FreeRTOS.h"
 #define MALLOC(n)       pvPortMalloc(n)
 #define FREE(pv)        vPortFree(pv)
+// raised, with the scheduler suspended, around an allocation the caller copes without: when there is no
+// memory the failed hook returns and MALLOC gives NULL, instead of stopping with OUT OF MEMORY
+extern volatile uint8_t g_malloc_can_fail;
 
 ////////////////////////////////////////////////////////////////
 ////// DON'T CHANGE THIS DEFINES

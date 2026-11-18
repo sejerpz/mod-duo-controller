@@ -3125,6 +3125,24 @@ uint8_t naveg_is_tool_mode(uint8_t display)
     return display_has_tool_enabled(display);
 }
 
+uint8_t naveg_shows_control_screen(uint8_t display)
+{
+    return g_initialized && !g_waiting_for_ui && !BM_is_active() && !display_has_tool_enabled(display);
+}
+
+void naveg_print_control_screens(uint8_t displays)
+{
+    uint8_t display;
+
+    for (display = 0; display < SLOTS_COUNT; display++)
+    {
+        if (!(displays & (1 << display)) || !naveg_shows_control_screen(display)) continue;
+
+        screen_clear(display);
+        draw_control_screen(display);
+    }
+}
+
 uint8_t naveg_tool_is_on(uint8_t tool)
 {
     return tool_is_on(tool);

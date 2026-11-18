@@ -308,11 +308,20 @@ void uc1701_clear(uc1701_t *disp, uint8_t color)
     disp->status |= NEED_UPDATE;
 }
 
+// Called with the buffer about to be sent, to draw over it what the firmware's own drawing must not
+// cover. Nothing by default; the application gives its own.
+__attribute__((weak)) void uc1701_before_update(uc1701_t *disp)
+{
+    (void) disp;
+}
+
 void uc1701_update(uc1701_t *disp)
 {
     if (disp->status & NEED_UPDATE)
     {
         int i, j;
+
+        uc1701_before_update(disp);
 
         disp->status |= UPDATING;
 
