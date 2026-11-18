@@ -421,6 +421,29 @@ void WA_paint(glcd_t *display)
     xTaskResumeAll();
 }
 
+uint8_t WA_halves(uint8_t display, const glcd_rect_t *zone)
+{
+    const int16_t middle = zone->x + zone->width / 2;
+    uint8_t halves = 0;
+    glcd_rect_t r;
+
+    vTaskSuspendAll();
+
+    widget_area_t *area;
+    for (area = g_areas; area; area = area->next)
+    {
+        if (area->display != display || !is_in_view(area) || !glcd_rect_intersect(&area->rect, zone, &r))
+            continue;
+
+        if (r.x < middle) halves |= 1;
+        if (r.x + r.width > middle) halves |= 2;
+    }
+
+    xTaskResumeAll();
+
+    return halves;
+}
+
 // the display driver's hook, right before a buffer goes to the panel
 void uc1701_before_update(uc1701_t *disp)
 {

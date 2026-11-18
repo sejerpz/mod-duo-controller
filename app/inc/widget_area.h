@@ -81,6 +81,10 @@ uint8_t WA_draw(int16_t area_id, int16_t x, int16_t y, int16_t width, int16_t he
 // Paints the areas in view over a display, from its driver just before the buffer is sent to the panel.
 void WA_paint(glcd_t *display);
 
+// Which halves of `zone`, split down the middle, the areas in view on a display take: bit 0 the left one,
+// bit 1 the right one.
+uint8_t WA_halves(uint8_t display, const glcd_rect_t *zone);
+
 
 /*
 ************************************************************************************************************************
