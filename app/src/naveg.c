@@ -99,7 +99,6 @@ static bp_list_t *g_banks, *g_naveg_pedalboards, g_footswitch_pedalboards;
 static uint16_t g_bp_state, g_current_pedalboard, g_bp_first, g_pb_footswitches;
 static node_t *g_menu, *g_current_menu, *g_current_main_menu;
 static menu_item_t *g_current_item, *g_current_main_item;
-static uint8_t g_max_items_list;
 static bank_config_t g_bank_functions[BANK_FUNC_COUNT];
 static uint8_t g_initialized, g_ui_connected;
 static void (*g_update_cb)(void *data, int event);
@@ -1876,8 +1875,23 @@ static void create_menu_tree(node_t *parent, const menu_desc_t *desc)
             item->data.hover = 0;
             item->data.selected = 0xFF;
             item->data.list_count = 0;
-            item->data.list = (char **) MALLOC(g_max_items_list * sizeof(char *));
             item->desc = &g_menu_desc[i];
+
+            // only lists and selections show lines, as many as their children: the Duo is short of memory
+            // and most items are leaves
+            if (item->desc->type == MENU_LIST || item->desc->type == MENU_SELECT)
+            {
+                uint8_t j, count = 0;
+                for (j = 0; g_menu_desc[j].name; j++)
+                {
+                    if (g_menu_desc[j].parent_id == g_menu_desc[i].id) count++;
+                }
+                item->data.list = (char **) MALLOC(count * sizeof(char *));
+            }
+            else
+            {
+                item->data.list = NULL;
+            }
             item->name = MALLOC(MAX_CHARS_MENU_NAME);
             strcpy(item->name, g_menu_desc[i].name);
 
@@ -2239,23 +2253,6 @@ void naveg_init(void)
         g_bank_functions[i].function = BANK_FUNC_NONE;
         g_bank_functions[i].hw_id = 0xFF;
     }
-
-    // counts the maximum items amount in menu lists
-    uint8_t count = 0;
-    for (i = 0; g_menu_desc[i].name; i++)
-    {
-        uint8_t j = i + 1;
-        for (; g_menu_desc[j].name; j++)
-        {
-            if (g_menu_desc[i].id == g_menu_desc[j].parent_id) count++;
-        }
-
-        if (count > g_max_items_list) g_max_items_list = count;
-        count = 0;
-    }
-
-    // adds one to line 'back to previous menu'
-    g_max_items_list++;
 
     // creates the menu tree (recursively)
     const menu_desc_t root_desc = {"root", MENU_LIST, -1, -1, NULL, 0};
