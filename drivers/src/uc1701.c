@@ -17,6 +17,7 @@
 #include "device.h"
 
 #include "task.h"
+#include "semphr.h"
 
 
 /*
@@ -76,6 +77,9 @@
 *           LOCAL GLOBAL VARIABLES
 ************************************************************************************************************************
 */
+
+// the displays share the SSP bus and the CD line: one update at a time, else the bytes of one land on the other
+static xSemaphoreHandle g_bus_lock;
 
 
 /*
@@ -196,6 +200,9 @@ static void write_byte(uc1701_t *disp, uint8_t x, uint8_t y, uint8_t data)
 
 void uc1701_init(uc1701_t *disp)
 {
+    if (!g_bus_lock)
+        g_bus_lock = xSemaphoreCreateMutex();
+
     // TODO: check if SSP is already initialized
 
     // setup the GPIO pins
@@ -317,6 +324,11 @@ __attribute__((weak)) void uc1701_before_update(uc1701_t *disp)
 
 void uc1701_update(uc1701_t *disp)
 {
+    // not taken before the scheduler runs nor in a fault handler, which draws the crash screen
+    const uint8_t lock = g_bus_lock && __get_IPSR() == 0 && xTaskGetSchedulerState() == taskSCHEDULER_RUNNING;
+    if (lock)
+        xSemaphoreTake(g_bus_lock, portMAX_DELAY);
+
     if (disp->status & NEED_UPDATE)
     {
         int i, j;
@@ -356,6 +368,9 @@ void uc1701_update(uc1701_t *disp)
 
         disp->status &= ~(NEED_UPDATE | UPDATING);
     }
+
+    if (lock)
+        xSemaphoreGive(g_bus_lock);
 }
 
 void uc1701_set_pixel(uc1701_t *disp, uint8_t x, uint8_t y, uint8_t color)
