@@ -16,6 +16,7 @@
 */
 
 #include <stdint.h>
+#include "config.h"
 #include "comm.h"
 #include "mod-protocol.h"
 
@@ -34,7 +35,7 @@
 */
 
 // defines the function to send responses to sender
-#define SEND_TO_SENDER(id,msg,len)      comm_webgui_send(msg,len)
+#define SEND_TO_SENDER(id,msg,len)      ((id) == SYSTEM_SERIAL ? comm_system_send(msg,len) : comm_webgui_send(msg,len))
 
 // special "flag" to indicate banks control (last available bitmask value for a 16bit integer)
 #define FLAG_CONTROL_BANKS 0x4000
