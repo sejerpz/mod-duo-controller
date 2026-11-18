@@ -345,6 +345,8 @@ void uc1701_update(uc1701_t *disp)
                 {
                     i = -1;
                     disp->status &= ~FORCE_REFRESH;
+                    // drawn over again: what was just drawn may be under what the application draws over it
+                    uc1701_before_update(disp);
                     break;
                 }
 
