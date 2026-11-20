@@ -40,7 +40,7 @@ enum {TOOL_OFF, TOOL_ON};
 enum {BANKS_LIST, PEDALBOARD_LIST};
 
 #define MAX_CHARS_MENU_NAME     (128/4)
-#define MAX_TOOLS               5
+#define MAX_TOOLS               6
 
 #define DIALOG_MAX_SEM_COUNT   1
 
@@ -109,6 +109,28 @@ static int16_t g_current_bank;
 static uint8_t g_force_update_pedalboard = 1;
 static uint8_t g_scroll_dir = 1;
 
+/*
+ * The footswitch browser. A footswitch held on the control screen opens it, the first on the
+ * pedalboards of the current bank, the second on the snapshots of the current pedalboard: the
+ * keys on the left display, the list on the right. Inside it the footswitches are all there is:
+ * a click moves the cursor up (first) or down (second), the second held loads what is under the
+ * cursor and the first held goes back to the controls. The banks are the first line of the
+ * pedalboards, as in the menu. A load closes it.
+ */
+enum {BROWSER_OFF, BROWSER_PEDALBOARDS, BROWSER_SNAPSHOTS};
+static uint8_t g_browser = BROWSER_OFF;
+static bp_list_t *g_snapshots;
+static int16_t g_current_snapshot = -1;
+
+// A footswitch acts on its control when pressed, before a hold can tell that it opens the
+// browser: what the press changed, to put it back then.
+static struct {
+    control_t *control;
+    float value;
+    int32_t step;
+    uint16_t scale_point_index;
+} g_foot_press[FOOTSWITCHES_COUNT];
+
 // only enabled after "boot" command received
 bool g_should_wait_for_webgui = false;
 static bool g_waiting_for_ui = false;
@@ -130,6 +152,8 @@ static uint8_t bank_config_check(uint8_t foot);
 static void bank_config_update(uint8_t bank_func_idx);
 static void bank_config_footer(void);
 static void draw_control_screen(uint8_t display);
+static void bp_up(void);
+static void bp_down(void);
 
 
 /*
@@ -783,6 +807,8 @@ static void request_banks_list(uint8_t dir)
     g_protocol_busy = false;
     system_lock_comm_serial(g_protocol_busy);
 
+    if (!g_banks) return;
+
     g_banks->hover = g_current_bank;
     g_banks->selected = g_current_bank;
 }
@@ -971,6 +997,8 @@ static void send_load_pedalboard(uint16_t bank_id, const char *pedalboard_uid)
     g_protocol_busy = false;
     system_lock_comm_serial(g_protocol_busy);
 }
+
+static void control_send(control_t *control);
 
 static void control_set(uint8_t id, control_t *control)
 {
@@ -1169,6 +1197,12 @@ static void control_set(uint8_t id, control_t *control)
         }
     }
 
+    control_send(control);
+}
+
+// sends the value of a control to mod-ui
+static void control_send(control_t *control)
+{
     char buffer[128];
     uint8_t i;
 
@@ -1197,20 +1231,14 @@ static void control_set(uint8_t id, control_t *control)
     system_lock_comm_serial(g_protocol_busy);
 }
 
-static void bp_enter(void)
+// enters the bank or loads the pedalboard under the cursor, or goes back to the banks: 1 once a pedalboard is loaded
+static uint8_t bp_select(void)
 {
     const char *title;
-
-    if (naveg_ui_status())
-    {
-        tool_off(DISPLAY_TOOL_NAVIG);
-        tool_on(DISPLAY_TOOL_SYSTEM, 0);
-        tool_on(DISPLAY_TOOL_SYSTEM_SUBMENU, 1);
-        screen_system_menu(g_current_item);
-    }
+    uint8_t loaded = 0;
 
     if (!g_banks)
-        return;
+        return 0;
 
     if (g_bp_state == BANKS_LIST)
     {
@@ -1245,6 +1273,7 @@ static void bp_enter(void)
             send_load_pedalboard(atoi(g_banks->uids[g_banks->hover - g_banks->page_min]), g_naveg_pedalboards->uids[g_naveg_pedalboards->hover - g_naveg_pedalboards->page_min - 1]);
 
             g_current_pedalboard = g_naveg_pedalboards->hover;
+            loaded = 1;
 
             g_force_update_pedalboard = 1;
 
@@ -1258,7 +1287,7 @@ static void bp_enter(void)
     }
     else
     {
-        return;
+        return 0;
     }
 
     //check if we need to display the selected item or out of bounds
@@ -1274,6 +1303,270 @@ static void bp_enter(void)
     }
 
     screen_bp_list(title, (g_bp_state == PEDALBOARD_LIST)? g_naveg_pedalboards : g_banks);
+
+    return loaded;
+}
+
+static void bp_enter(void)
+{
+    if (naveg_ui_status())
+    {
+        tool_off(DISPLAY_TOOL_NAVIG);
+        tool_on(DISPLAY_TOOL_SYSTEM, 0);
+        tool_on(DISPLAY_TOOL_SYSTEM_SUBMENU, 1);
+        screen_system_menu(g_current_item);
+    }
+
+    bp_select();
+}
+
+// what a footswitch with a bank function does, on a click: a press is still free to become a hold
+static void foot_bank_function(uint8_t foot, uint8_t bank_func_idx)
+{
+    if ((g_current_pedalboard == (g_footswitch_pedalboards.menu_max) && (foot == 1)) ||
+        ((g_current_pedalboard == 1) && (foot == 0)))
+    {
+        led_blink(hardware_leds(foot), 0, 0);
+    }
+    else
+    {
+        led_set_color(hardware_leds(foot), BLACK);
+        led_set_color(hardware_leds(foot), PEDALBOARD_LOADING_COLOR);
+        led_blink(hardware_leds(foot), 100, 100);
+    }
+
+    bank_config_update(bank_func_idx);
+}
+
+// puts back what the press of a footswitch did to its control, now that it turned out to be a hold
+static void foot_press_undo(uint8_t foot)
+{
+    control_t *control = g_foots[foot];
+
+    // gone, or a new page of its list came in its place
+    if (!control || control != g_foot_press[foot].control) return;
+
+    // the browser takes the release
+    control->scroll_dir = 0;
+
+    // a trigger cannot be taken back
+    if (control->properties & FLAG_CONTROL_TRIGGER) return;
+    if (control->value == g_foot_press[foot].value) return;
+
+    control->value = g_foot_press[foot].value;
+    control->step = g_foot_press[foot].step;
+    control->scale_point_index = g_foot_press[foot].scale_point_index;
+
+    control_send(control);
+}
+
+static void parse_snapshots_list(void *data, menu_item_t *item)
+{
+    (void) item;
+    char **list = data;
+
+    if (g_snapshots) data_free_banks_list(g_snapshots);
+    g_snapshots = NULL;
+
+    // r 0 <count> <first> <last + 1> then pairs of name and id, as the banks
+    if (strarr_length(list) < 5) return;
+
+    g_snapshots = data_parse_banks_list(&list[5], strarr_length(&list[5]));
+
+    if (g_snapshots)
+    {
+        g_snapshots->menu_max = atoi(list[2]);
+        g_snapshots->page_min = atoi(list[3]);
+        g_snapshots->page_max = atoi(list[4]);
+    }
+}
+
+// the page of snapshots around one of them
+static void request_snapshots(uint16_t focus)
+{
+    char buffer[40];
+    uint8_t i;
+
+    comm_webgui_set_response_cb(parse_snapshots_list, NULL);
+
+    i = copy_command(buffer, CMD_SNAPSHOTS);
+    i += int_to_str(FLAG_PAGINATION_INITIAL_REQ, &buffer[i], sizeof(buffer) - i, 0);
+    buffer[i++] = ' ';
+    i += int_to_str(focus, &buffer[i], sizeof(buffer) - i, 0);
+    buffer[i] = 0;
+
+    g_protocol_busy = true;
+    system_lock_comm_serial(g_protocol_busy);
+
+    comm_webgui_send(buffer, i);
+    comm_webgui_wait_response();
+
+    g_protocol_busy = false;
+    system_lock_comm_serial(g_protocol_busy);
+}
+
+static void send_load_snapshot(const char *snapshot_uid)
+{
+    char buffer[40];
+    uint8_t i;
+
+    comm_webgui_set_response_cb(NULL, NULL);
+
+    i = copy_command(buffer, CMD_SNAPSHOTS_LOAD);
+    strncpy(&buffer[i], snapshot_uid, sizeof(buffer) - i - 1);
+    buffer[sizeof(buffer) - 1] = 0;
+    i = strlen(buffer);
+
+    g_protocol_busy = true;
+    system_lock_comm_serial(g_protocol_busy);
+
+    comm_webgui_send(buffer, i);
+    comm_webgui_wait_response();
+
+    g_protocol_busy = false;
+    system_lock_comm_serial(g_protocol_busy);
+}
+
+static void snapshots_draw(void)
+{
+    static char none[] = "NO SNAPSHOTS";
+    static char *none_names[] = {none, NULL};
+
+    if (!g_snapshots)
+    {
+        bp_list_t empty = {.names = none_names, .uids = NULL, .hover = 0, .selected = 1};
+        screen_bp_list("SNAPSHOTS", &empty);
+        return;
+    }
+
+    // the current snapshot is marked only when on this page
+    if (g_current_snapshot >= g_snapshots->page_min && g_current_snapshot < g_snapshots->page_max)
+        g_snapshots->selected = g_current_snapshot;
+    else
+        g_snapshots->selected = g_snapshots->page_max + 1;
+
+    screen_bp_list("SNAPSHOTS", g_snapshots);
+}
+
+static void snapshots_move(int8_t dir)
+{
+    if (!g_snapshots) return;
+
+    int16_t hover = g_snapshots->hover + dir;
+    if (hover < 0 || hover >= g_snapshots->menu_max) return;
+
+    if (hover < g_snapshots->page_min || hover >= g_snapshots->page_max)
+        request_snapshots(hover);
+
+    if (g_snapshots) g_snapshots->hover = hover;
+
+    snapshots_draw();
+}
+
+static void browser_open(uint8_t list)
+{
+    uint8_t i;
+
+    g_browser = list;
+    tool_on(DISPLAY_TOOL_BROWSER, DISPLAY_LEFT);
+    tool_on(DISPLAY_TOOL_BROWSER_LIST, DISPLAY_RIGHT);
+
+    for (i = 0; i < FOOTSWITCHES_COUNT; i++)
+    {
+        led_blink(hardware_leds(i), 0, 0);
+        led_set_color(hardware_leds(i), BLACK);
+        led_set_color(hardware_leds(i), (i == 0) ? PEDALBOARD_PREV_COLOR : PEDALBOARD_NEXT_COLOR);
+    }
+
+    screen_clear(DISPLAY_RIGHT);
+
+    if (list == BROWSER_PEDALBOARDS)
+    {
+        screen_browser_keys("PEDALBOARDS");
+
+        request_banks_list(PAGE_DIR_INIT);
+        if (!g_banks) return;
+
+        // straight into the current bank, on the current pedalboard
+        g_bp_state = BANKS_LIST;
+        if (g_naveg_pedalboards) bp_select();
+        else screen_bp_list("BANKS", g_banks);
+    }
+    else
+    {
+        screen_browser_keys("SNAPSHOTS");
+
+        request_snapshots(g_current_snapshot < 0 ? 0 : g_current_snapshot);
+
+        if (g_snapshots)
+        {
+            if (g_current_snapshot >= g_snapshots->page_min && g_current_snapshot < g_snapshots->page_max)
+                g_snapshots->hover = g_current_snapshot;
+            else
+                g_snapshots->hover = g_snapshots->page_min;
+        }
+
+        snapshots_draw();
+    }
+}
+
+// back to the controls; without a redraw when something else takes the displays
+static void browser_close(uint8_t redraw)
+{
+    uint8_t i;
+
+    g_browser = BROWSER_OFF;
+    tool_off(DISPLAY_TOOL_BROWSER);
+    tool_off(DISPLAY_TOOL_BROWSER_LIST);
+
+    if (g_snapshots) data_free_banks_list(g_snapshots);
+    g_snapshots = NULL;
+
+    if (!redraw) return;
+
+    // the controls light the footswitches they are on
+    for (i = 0; i < FOOTSWITCHES_COUNT; i++)
+    {
+        led_blink(hardware_leds(i), 0, 0);
+        led_set_color(hardware_leds(i), BLACK);
+    }
+
+    screen_clear(DISPLAY_LEFT);
+    screen_clear(DISPLAY_RIGHT);
+    draw_control_screen(DISPLAY_LEFT);
+    draw_control_screen(DISPLAY_RIGHT);
+}
+
+static void browser_move(int8_t dir)
+{
+    if (g_browser == BROWSER_PEDALBOARDS)
+    {
+        if (dir < 0) bp_up();
+        else bp_down();
+    }
+    else snapshots_move(dir);
+}
+
+static void browser_load(void)
+{
+    if (g_browser == BROWSER_PEDALBOARDS)
+    {
+        // a bank, or the way back to the banks, only opens another list
+        if (bp_select())
+        {
+            // mod-ui names the snapshot of the new pedalboard, if its descriptor lets it
+            g_current_snapshot = -1;
+            browser_close(1);
+        }
+    }
+    else if (g_snapshots)
+    {
+        send_load_snapshot(g_snapshots->uids[g_snapshots->hover - g_snapshots->page_min]);
+
+        // without hmi_set_ss_name in its descriptor, mod-ui does not tell
+        g_current_snapshot = g_snapshots->hover;
+        browser_close(1);
+    }
 }
 
 static void bp_up(void)
@@ -2346,6 +2639,8 @@ void naveg_wait_for_ui(void)
 {
     g_waiting_for_ui = true;
 
+    if (g_browser) browser_close(0);
+
     // the menu is left first: menu_enter does not redraw it once the tool is off
     if (tool_is_on(DISPLAY_TOOL_SYSTEM))
         naveg_toggle_tool(DISPLAY_TOOL_SYSTEM, 0);
@@ -2415,23 +2710,61 @@ void naveg_encoder_released(uint8_t encoder)
 
 /*
  * The Duo has no buttons for the builder, so its footswitches stand in for them: the first
- * is BACK, the second ADD when clicked and DEL when held.
+ * is BACK, the second ADD when clicked and DEL when held. Without the builder a hold opens
+ * the browser, see g_browser.
  */
 void naveg_foot_clicked(uint8_t foot)
 {
-    if (!BM_is_active()) return;
+    if (!g_initialized || foot >= FOOTSWITCHES_COUNT) return;
 
-    if (foot == 0) BM_button_pressed(BM_BUTTON_BACK);
-    else if (foot == 1) BM_button_pressed(BM_BUTTON_ADD);
+    if (BM_is_active())
+    {
+        if (foot == 0) BM_button_pressed(BM_BUTTON_BACK);
+        else if (foot == 1) BM_button_pressed(BM_BUTTON_ADD);
+        return;
+    }
+
+    if (g_browser)
+    {
+        browser_move(foot ? 1 : -1);
+        return;
+    }
+
+    if (display_has_tool_enabled(get_display_by_id(foot, FOOT))) return;
+
+    uint8_t bank_func_idx = bank_config_check(foot);
+    if (bank_func_idx) foot_bank_function(foot, bank_func_idx);
 }
 
 void naveg_foot_held(uint8_t foot)
 {
-    if (!BM_is_active()) return;
+    if (!g_initialized || foot >= FOOTSWITCHES_COUNT) return;
 
-    // a held BACK is still a BACK, the click being cancelled by the hold
-    if (foot == 0) BM_button_pressed(BM_BUTTON_BACK);
-    else if (foot == 1) BM_button_pressed(BM_BUTTON_DEL);
+    if (BM_is_active())
+    {
+        // a held BACK is still a BACK, the click being cancelled by the hold
+        if (foot == 0) BM_button_pressed(BM_BUTTON_BACK);
+        else if (foot == 1) BM_button_pressed(BM_BUTTON_DEL);
+        return;
+    }
+
+    if (g_browser)
+    {
+        if (foot == 0) browser_close(1);
+        else browser_load();
+        return;
+    }
+
+    // from the control screen only, not over the menu, the tuner or a dialog
+    if (dialog_active || display_has_tool_enabled(DISPLAY_LEFT) || display_has_tool_enabled(DISPLAY_RIGHT)) return;
+
+    foot_press_undo(foot);
+    browser_open(foot ? BROWSER_SNAPSHOTS : BROWSER_PEDALBOARDS);
+}
+
+void naveg_set_current_snapshot(int16_t snapshot_id)
+{
+    g_current_snapshot = snapshot_id;
 }
 
 void naveg_ui_connection(uint8_t status)
@@ -2926,29 +3259,19 @@ void naveg_foot_change(uint8_t foot, uint8_t pressed)
     // checks if the foot is used like bank function
     uint8_t bank_func_idx = bank_config_check(foot);
 
-    if (bank_func_idx)
-    {
-        if (!pressed) 
-            return;
-        
-        if ((g_current_pedalboard == (g_footswitch_pedalboards.menu_max) && (foot == 1)) ||
-            ((g_current_pedalboard == 1) && (foot == 0)))
-        {
-            led_blink(hardware_leds(foot), 0, 0);
-        }
-        else 
-        {
-            led_set_color(hardware_leds(foot), BLACK);
-            led_set_color(hardware_leds(foot), PEDALBOARD_LOADING_COLOR);
-            led_blink(hardware_leds(foot), 100, 100);        
-        }
-
-        bank_config_update(bank_func_idx);
-        return;
-    }
+    // acted on when clicked, see naveg_foot_clicked(): a hold opens the browser instead
+    if (bank_func_idx) return;
 
     // checks if there is assigned control
     if (g_foots[foot] == NULL) return;
+
+    if (pressed)
+    {
+        g_foot_press[foot].control = g_foots[foot];
+        g_foot_press[foot].value = g_foots[foot]->value;
+        g_foot_press[foot].step = g_foots[foot]->step;
+        g_foot_press[foot].scale_point_index = g_foots[foot]->scale_point_index;
+    }
 
     //detect a release action which we dont use right now for all actuator modes
     if (!pressed)
@@ -3007,6 +3330,9 @@ static void draw_control_screen(uint8_t display)
 void naveg_toggle_tool(uint8_t tool, uint8_t display)
 {
     if (!g_initialized) return;
+
+    // no menu nor tuner over the browser
+    if (g_browser) return;
     static uint8_t banks_loaded = 0;
     // clears the display
     screen_clear(display);
@@ -3244,6 +3570,9 @@ void naveg_enter(uint8_t display)
 {
     if ((!g_initialized)&&(g_update_cb)) return;
 
+    // the browser has the footswitches only
+    if (g_browser) return;
+
     if (BM_is_active())
     {
         BM_encoder_click(display);
@@ -3284,6 +3613,9 @@ void naveg_enter(uint8_t display)
 void naveg_up(uint8_t display)
 {
     if (!g_initialized) return;
+
+    // the browser has the footswitches only
+    if (g_browser) return;
 
     if (BM_is_active())
     {
@@ -3334,6 +3666,9 @@ void naveg_up(uint8_t display)
 void naveg_down(uint8_t display)
 {
     if (!g_initialized) return;
+
+    // the browser has the footswitches only
+    if (g_browser) return;
 
     if (BM_is_active())
     {

@@ -167,6 +167,7 @@ void screen_ss_name(const void *data, uint8_t update);
 void screen_footer(uint8_t display_id, const char *name, const char *value, int16_t property);
 void screen_tool(uint8_t tool, uint8_t display_id);
 void screen_bp_list(const char *title, bp_list_t *list);
+void screen_browser_keys(const char *title);
 void screen_system_menu(menu_item_t *item);
 void screen_tuner(float frequency, char *note, int8_t cents);
 void screen_tuner_input(uint8_t input);

@@ -726,6 +726,7 @@ void cb_snapshot_name(proto_t *proto)
     g_protocol_busy = true;
     system_lock_comm_serial(g_protocol_busy);
 
+    naveg_set_current_snapshot(atoi(proto->list[1]));
     screen_ss_name(&proto->list[2], 1);
 
     protocol_send_response(CMD_RESPONSE, 0, proto);

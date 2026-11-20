@@ -814,6 +814,47 @@ void screen_bp_list(const char *title, bp_list_t *list)
     }
 }
 
+// the left display while the footswitch browser is up: what it lists, and what the footswitches do
+void screen_browser_keys(const char *title)
+{
+    static const char *keys[] = {
+        "FS1: UP", "FS2: DOWN", "HOLD FS2: LOAD", "HOLD FS1: BACK", NULL
+    };
+
+    glcd_t *display = hardware_glcds(DISPLAY_LEFT);
+    glcd_clear(display, GLCD_WHITE);
+
+    textbox_t box;
+    box.color = GLCD_BLACK;
+    box.mode = TEXT_SINGLE_LINE;
+    box.font = Terminal5x7;
+    box.top_margin = 0;
+    box.bottom_margin = 0;
+    box.left_margin = 0;
+    box.right_margin = 0;
+    box.height = 0;
+    box.width = 0;
+    box.text = title;
+    box.align = ALIGN_CENTER_TOP;
+    widget_textbox(display, &box);
+
+    glcd_hline(display, 0, 9, DISPLAY_WIDTH, GLCD_BLACK_WHITE);
+
+    uint8_t i;
+    box.font = Terminal3x5;
+    box.align = ALIGN_NONE_NONE;
+    for (i = 0; keys[i]; i++)
+    {
+        // the widget keeps the size of the last text it drew
+        box.width = 0;
+        box.height = 0;
+        box.x = 4;
+        box.y = 16 + i * 11;
+        box.text = keys[i];
+        widget_textbox(display, &box);
+    }
+}
+
 void screen_system_menu(menu_item_t *item)
 {
     // return if system is disabled

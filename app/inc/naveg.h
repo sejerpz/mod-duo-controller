@@ -147,6 +147,9 @@ void naveg_encoder_released(uint8_t encoder);
 // a footswitch clicked or held, which only the builder listens to
 void naveg_foot_clicked(uint8_t foot);
 void naveg_foot_held(uint8_t foot);
+
+// the snapshot mod-ui last named, -1 for none
+void naveg_set_current_snapshot(int16_t snapshot_id);
 void naveg_set_index(uint8_t update, uint8_t display, uint8_t new_index, uint8_t new_index_count);
 //refreshes screen with current menu item
 void naveg_settings_refresh(uint8_t display_id);
