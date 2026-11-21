@@ -655,6 +655,9 @@ void cb_pedalboard_load_begin(proto_t *proto)
     // the host stops watching the board on its own when a load starts, so this leaves
     // without saying anything: nothing may be sent from inside a callback
     BM_drop(1);
+
+    // the footswitch browser stays open over it
+    naveg_pedalboard_loading(1);
 }
 
 void cb_pedalboard_load_end(proto_t *proto)
@@ -666,6 +669,8 @@ void cb_pedalboard_load_end(proto_t *proto)
 
     // a NEW PEDALBOARD from the menu goes on into the builder, now that it is loaded
     BM_pedalboard_loaded();
+
+    naveg_pedalboard_loading(0);
 }
 
 /*

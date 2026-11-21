@@ -815,11 +815,9 @@ void screen_bp_list(const char *title, bp_list_t *list)
 }
 
 // the left display while the footswitch browser is up: what it lists, and what the footswitches do
-void screen_browser_keys(const char *title)
+void screen_browser_keys(const char *title, const char *click, const char *hold)
 {
-    static const char *keys[] = {
-        "FS1: UP", "FS2: DOWN", "HOLD FS2: LOAD", "HOLD FS1: BACK", NULL
-    };
+    const char *keys[] = {click, hold, "HOLD FS1: EXIT", NULL};
 
     glcd_t *display = hardware_glcds(DISPLAY_LEFT);
     glcd_clear(display, GLCD_WHITE);
@@ -849,10 +847,43 @@ void screen_browser_keys(const char *title)
         box.width = 0;
         box.height = 0;
         box.x = 4;
-        box.y = 16 + i * 11;
+        box.y = 18 + i * 13;
         box.text = keys[i];
         widget_textbox(display, &box);
     }
+}
+
+// the left display of the browser while a pedalboard loads; the name only when known
+void screen_browser_loading(const char *name)
+{
+    glcd_t *display = hardware_glcds(DISPLAY_LEFT);
+    glcd_clear(display, GLCD_WHITE);
+
+    textbox_t box;
+    box.color = GLCD_BLACK;
+    box.mode = TEXT_SINGLE_LINE;
+    box.font = Terminal5x7;
+    box.top_margin = 0;
+    box.bottom_margin = 0;
+    box.left_margin = 0;
+    box.right_margin = 0;
+    box.height = 0;
+    box.width = 0;
+    box.text = "LOADING...";
+    box.align = ALIGN_NONE_NONE;
+    box.x = (DISPLAY_WIDTH - 10 * 6) / 2;
+    box.y = 20;
+    widget_textbox(display, &box);
+
+    if (!name || !*name) return;
+
+    // the widget keeps the size of the last text it drew
+    box.width = 0;
+    box.height = 0;
+    box.text = name;
+    box.x = (DISPLAY_WIDTH - strlen(name) * 6) / 2;
+    box.y = 36;
+    widget_textbox(display, &box);
 }
 
 void screen_system_menu(menu_item_t *item)
