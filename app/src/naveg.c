@@ -112,7 +112,7 @@ static uint8_t g_scroll_dir = 1;
 /*
  * The footswitch browser. A footswitch held on the control screen opens it, the first on the
  * pedalboards of the current bank, the second on the snapshots of the current pedalboard: the
- * keys on the left display, the list on the right. Inside it the footswitches are all there is:
+ * list on the left display, the keys on the right. Inside it the footswitches are all there is:
  * a click moves the cursor up (first) or down (second) and loads the pedalboard or snapshot it
  * lands on, the browser staying open; the second held goes up a level, from the snapshots to
  * the pedalboards and from these to the banks, where it opens the bank under the cursor; the
@@ -123,7 +123,7 @@ static uint8_t g_browser = BROWSER_OFF;
 static bp_list_t *g_snapshots;
 static int16_t g_current_snapshot = -1;
 
-// a pedalboard load is running, from plb to ple: the left display tells, the footswitches blink
+// a pedalboard load is running, from plb to ple: the right display tells, the footswitches blink
 static uint8_t g_browser_loading;
 static char g_browser_loading_name[20];
 
@@ -1238,9 +1238,10 @@ static void control_send(control_t *control)
 }
 
 /*
- * The banks or pedalboards list on the right display. The browser has no "< Back to bank list"
- * line, a held footswitch goes up instead: its pedalboards are drawn from the second name, and
- * with the cursor on the hidden line, as on entering a bank, nothing is highlighted.
+ * The banks or pedalboards list: on the right display, on the left one in the browser. The
+ * browser has no "< Back to bank list" line, a held footswitch goes up instead: its pedalboards
+ * are drawn from the second name, and with the cursor on the hidden line, as on entering a bank,
+ * nothing is highlighted.
  */
 static void bp_draw(const char *title, bp_list_t *list)
 {
@@ -1252,11 +1253,11 @@ static void bp_draw(const char *title, bp_list_t *list)
         view.hover = list->hover ? list->hover - 1 : list->page_min + LISTBOX_NO_HOVER;
         view.selected = list->selected - 1;
 
-        screen_bp_list(title, &view);
+        screen_bp_list_on(DISPLAY_LEFT, title, &view);
         return;
     }
 
-    screen_bp_list(title, list);
+    screen_bp_list_on(g_browser ? DISPLAY_LEFT : DISPLAY_RIGHT, title, list);
 }
 
 // enters the bank or loads the pedalboard under the cursor, or goes back to the banks: 1 once a pedalboard is loaded
@@ -1466,7 +1467,7 @@ static void snapshots_draw(void)
     if (!g_snapshots)
     {
         bp_list_t empty = {.names = none_names, .uids = NULL, .hover = 0, .selected = 1};
-        screen_bp_list("SNAPSHOTS", &empty);
+        screen_bp_list_on(DISPLAY_LEFT, "SNAPSHOTS", &empty);
         return;
     }
 
@@ -1476,7 +1477,7 @@ static void snapshots_draw(void)
     else
         g_snapshots->selected = g_snapshots->page_max + 1;
 
-    screen_bp_list("SNAPSHOTS", g_snapshots);
+    screen_bp_list_on(DISPLAY_LEFT, "SNAPSHOTS", g_snapshots);
 }
 
 // 1 when the cursor moved
@@ -1510,7 +1511,7 @@ static void browser_leds(void)
     }
 }
 
-// the left display: the load running, or what the footswitches do in the list shown
+// the right display: the load running, or what the footswitches do in the list shown
 static void browser_keys(void)
 {
     if (g_browser_loading)
@@ -1557,12 +1558,12 @@ static void browser_snapshots(void)
 static void browser_open(uint8_t list)
 {
     g_browser_loading = 0;
-    tool_on(DISPLAY_TOOL_BROWSER, DISPLAY_LEFT);
-    tool_on(DISPLAY_TOOL_BROWSER_LIST, DISPLAY_RIGHT);
+    tool_on(DISPLAY_TOOL_BROWSER, DISPLAY_RIGHT);
+    tool_on(DISPLAY_TOOL_BROWSER_LIST, DISPLAY_LEFT);
 
     g_browser = list;
     browser_leds();
-    screen_clear(DISPLAY_RIGHT);
+    screen_clear(DISPLAY_LEFT);
 
     if (list == BROWSER_PEDALBOARDS) browser_pedalboards();
     else browser_snapshots();
@@ -1654,7 +1655,7 @@ static void browser_up(void)
         g_browser = BROWSER_BANKS;
         g_bp_state = BANKS_LIST;
         browser_keys();
-        screen_bp_list("BANKS", g_banks);
+        bp_draw("BANKS", g_banks);
     }
     else if (g_browser == BROWSER_BANKS)
     {

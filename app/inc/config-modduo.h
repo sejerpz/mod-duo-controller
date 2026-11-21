@@ -180,7 +180,7 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #define DISPLAY_TOOL_TUNER          1
 #define DISPLAY_TOOL_NAVIG          2
 #define DISPLAY_TOOL_SYSTEM_SUBMENU 3
-// the footswitch browser, see naveg_foot_held(): its keys on the left display, its list on the right
+// the footswitch browser, see naveg_foot_held(): its list on the left display, its keys on the right
 #define DISPLAY_TOOL_BROWSER        4
 #define DISPLAY_TOOL_BROWSER_LIST   5
 

@@ -745,13 +745,19 @@ void screen_tool(uint8_t tool, uint8_t display_id)
 
 void screen_bp_list(const char *title, bp_list_t *list)
 {
-    if (!naveg_is_tool_mode(DISPLAY_RIGHT))
+    screen_bp_list_on(DISPLAY_RIGHT, title, list);
+}
+
+// the footswitch browser lists on the left display
+void screen_bp_list_on(uint8_t display_id, const char *title, bp_list_t *list)
+{
+    if (!naveg_is_tool_mode(display_id))
         return; 
 
     listbox_t list_box;
     textbox_t title_box;
 
-    glcd_t *display = hardware_glcds(1);
+    glcd_t *display = hardware_glcds(display_id);
 
     // clears the title
     glcd_rect_fill(display, 0, 0, DISPLAY_WIDTH, 9, GLCD_WHITE);
@@ -814,12 +820,12 @@ void screen_bp_list(const char *title, bp_list_t *list)
     }
 }
 
-// the left display while the footswitch browser is up: what it lists, and what the footswitches do
+// the right display while the footswitch browser is up: what it lists, and what the footswitches do
 void screen_browser_keys(const char *title, const char *click, const char *hold)
 {
     const char *keys[] = {click, hold, "HOLD FS1: EXIT", NULL};
 
-    glcd_t *display = hardware_glcds(DISPLAY_LEFT);
+    glcd_t *display = hardware_glcds(DISPLAY_RIGHT);
     glcd_clear(display, GLCD_WHITE);
 
     textbox_t box;
@@ -853,10 +859,10 @@ void screen_browser_keys(const char *title, const char *click, const char *hold)
     }
 }
 
-// the left display of the browser while a pedalboard loads; the name only when known
+// the right display of the browser while a pedalboard loads; the name only when known
 void screen_browser_loading(const char *name)
 {
-    glcd_t *display = hardware_glcds(DISPLAY_LEFT);
+    glcd_t *display = hardware_glcds(DISPLAY_RIGHT);
     glcd_clear(display, GLCD_WHITE);
 
     textbox_t box;
