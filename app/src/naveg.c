@@ -2913,6 +2913,9 @@ void naveg_ui_connection(uint8_t status)
 {
     if (!g_initialized) return;
 
+    // the banks come and go with the web interface: back to the controls
+    if (g_browser) browser_close(1);
+
     if (status == UI_CONNECTED)
     {
         g_ui_connected = 1;
