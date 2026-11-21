@@ -36,6 +36,19 @@
 #define SERIAL0_TX_FUNC         1
 #define SERIAL0_TX_BUFF_SIZE    32
 #define SERIAL0_HAS_OE          0
+// SERIAL3 system line, to mod-system-control: the HMI_RFU_01/02 pair of the boards (UART4 of the A20)
+#define SERIAL3
+#define SERIAL3_BAUD_RATE       1500000
+#define SERIAL3_PRIORITY        5
+#define SERIAL3_RX_PORT         0
+#define SERIAL3_RX_PIN          1
+#define SERIAL3_RX_FUNC         2
+#define SERIAL3_RX_BUFF_SIZE    32
+#define SERIAL3_TX_PORT         0
+#define SERIAL3_TX_PIN          0
+#define SERIAL3_TX_FUNC         2
+#define SERIAL3_TX_BUFF_SIZE    32
+#define SERIAL3_HAS_OE          0
 // SERIAL1
 #define SERIAL1
 #define SERIAL1_BAUD_RATE       115200
@@ -53,7 +66,7 @@
 //// Hardware peripheral definitions
 // Clock power control
 #define HW_CLK_PWR_CONTROL      CLKPWR_PCONP_PCTIM0 | CLKPWR_PCONP_PCTIM1 | \
-                                CLKPWR_PCONP_PCUART0 | CLKPWR_PCONP_PCUART1 | \
+                                CLKPWR_PCONP_PCUART0 | CLKPWR_PCONP_PCUART1 | CLKPWR_PCONP_PCUART3 | \
                                 CLKPWR_PCONP_PCSSP0 |   \
                                 CLKPWR_PCONP_PCGPIO
 
@@ -134,6 +147,16 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 // define how many bytes will be allocated to rx/tx buffers
 #define WEBGUI_COMM_RX_BUFF_SIZE    4096
 #define WEBGUI_COMM_TX_BUFF_SIZE    512
+
+//// system configuration
+// mod-system-control, which forwards the plugin widget bitmaps from mod-host; only on the Itead boards,
+// with UART4 enabled in the device tree, the line is silent on the others
+#define SYSTEM_SERIAL               3
+
+// it sends up to 3 widget commands before waiting for the answers, each of at most 255 bytes of data
+#define SYSTEM_COMM_RX_BUFF_SIZE    1024
+// the longest message: the command, the data length and 255 bytes of data
+#define SYSTEM_COMM_MSG_SIZE        272
 
 //// Tools configuration
 // navigation update time, this is only useful in tool mode
@@ -419,6 +442,9 @@ enum {ENCODER0, ENCODER1, FOOTSWITCH0, FOOTSWITCH1};
 #include "FreeRTOS.h"
 #define MALLOC(n)       pvPortMalloc(n)
 #define FREE(pv)        vPortFree(pv)
+// raised, with the scheduler suspended, around an allocation the caller copes without: when there is no
+// memory the failed hook returns and MALLOC gives NULL, instead of stopping with OUT OF MEMORY
+extern volatile uint8_t g_malloc_can_fail;
 
 ////////////////////////////////////////////////////////////////
 ////// DON'T CHANGE THIS DEFINES

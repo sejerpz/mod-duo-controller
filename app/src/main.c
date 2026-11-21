@@ -78,6 +78,7 @@
 
 static volatile xQueueHandle g_actuators_queue;
 static uint8_t g_msg_buffer[WEBGUI_COMM_RX_BUFF_SIZE];
+static uint8_t g_sys_msg_buffer[SYSTEM_COMM_MSG_SIZE];
 
 /*
 ************************************************************************************************************************
@@ -90,6 +91,7 @@ static void actuators_cb(void *actuator);
 
 // tasks
 static void procotol_task(void *pvParameters);
+static void system_task(void *pvParameters);
 static void displays_task(void *pvParameters);
 static void actuators_task(void *pvParameters);
 static void cli_task(void *pvParameters);
@@ -215,8 +217,32 @@ static void procotol_task(void *pvParameters)
             g_protocol_busy = true;
             system_lock_comm_serial(g_protocol_busy);
             msg_t msg;
-            msg.sender_id = 0;
+            msg.sender_id = WEBGUI_SERIAL;
             msg.data = (char *) g_msg_buffer;
+            msg.data_size = msg_size;
+            protocol_parse(&msg);
+        }
+    }
+}
+
+// what mod-system-control sends: the plugin widget bitmaps and clears, answered on the same line
+static void system_task(void *pvParameters)
+{
+    UNUSED_PARAM(pvParameters);
+
+    hardware_eneble_serial_interupt(SYSTEM_SERIAL);
+
+    while (1)
+    {
+        uint32_t msg_size;
+        ringbuff_t *rb = comm_system_read();
+
+        // every complete message waiting, see procotol_task()
+        while ((msg_size = ringbuff_read_until(rb, g_sys_msg_buffer, SYSTEM_COMM_MSG_SIZE, 0)) > 0)
+        {
+            msg_t msg;
+            msg.sender_id = SYSTEM_SERIAL;
+            msg.data = (char *) g_sys_msg_buffer;
             msg.data_size = msg_size;
             protocol_parse(&msg);
         }
@@ -442,6 +468,7 @@ static void setup_task(void *pvParameters)
 
     // create the tasks
     xTaskCreate(procotol_task, TASK_NAME("proto"), 512, NULL, 4, NULL);
+    xTaskCreate(system_task, TASK_NAME("sys"), 128, NULL, 4, NULL);
     xTaskCreate(actuators_task, TASK_NAME("act"), 256, NULL, 3, NULL);
     xTaskCreate(cli_task, TASK_NAME("cli"), 128, NULL, 2, NULL);
     xTaskCreate(displays_task, TASK_NAME("disp"), 256, NULL, 1, NULL);
@@ -611,6 +638,8 @@ __attribute__((naked)) void UsageFault_Handler(void)
 
 void vApplicationMallocFailedHook(void)
 {
+    if (g_malloc_can_fail) return;
+
     // not an exception: there is no stacked frame, build one with who asked for memory
     uint32_t frame[8] = {0};
     frame[5] = (uint32_t)__builtin_return_address(0);

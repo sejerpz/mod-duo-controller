@@ -17,6 +17,7 @@
 #include "device.h"
 
 #include "task.h"
+#include "semphr.h"
 
 
 /*
@@ -76,6 +77,9 @@
 *           LOCAL GLOBAL VARIABLES
 ************************************************************************************************************************
 */
+
+// the displays share the SSP bus and the CD line: one update at a time, else the bytes of one land on the other
+static xSemaphoreHandle g_bus_lock;
 
 
 /*
@@ -196,6 +200,9 @@ static void write_byte(uc1701_t *disp, uint8_t x, uint8_t y, uint8_t data)
 
 void uc1701_init(uc1701_t *disp)
 {
+    if (!g_bus_lock)
+        g_bus_lock = xSemaphoreCreateMutex();
+
     // TODO: check if SSP is already initialized
 
     // setup the GPIO pins
@@ -308,11 +315,25 @@ void uc1701_clear(uc1701_t *disp, uint8_t color)
     disp->status |= NEED_UPDATE;
 }
 
+// Called with the buffer about to be sent, to draw over it what the firmware's own drawing must not
+// cover. Nothing by default; the application gives its own.
+__attribute__((weak)) void uc1701_before_update(uc1701_t *disp)
+{
+    (void) disp;
+}
+
 void uc1701_update(uc1701_t *disp)
 {
+    // not taken before the scheduler runs nor in a fault handler, which draws the crash screen
+    const uint8_t lock = g_bus_lock && __get_IPSR() == 0 && xTaskGetSchedulerState() == taskSCHEDULER_RUNNING;
+    if (lock)
+        xSemaphoreTake(g_bus_lock, portMAX_DELAY);
+
     if (disp->status & NEED_UPDATE)
     {
         int i, j;
+
+        uc1701_before_update(disp);
 
         disp->status |= UPDATING;
 
@@ -336,6 +357,8 @@ void uc1701_update(uc1701_t *disp)
                 {
                     i = -1;
                     disp->status &= ~FORCE_REFRESH;
+                    // drawn over again: what was just drawn may be under what the application draws over it
+                    uc1701_before_update(disp);
                     break;
                 }
 
@@ -345,6 +368,9 @@ void uc1701_update(uc1701_t *disp)
 
         disp->status &= ~(NEED_UPDATE | UPDATING);
     }
+
+    if (lock)
+        xSemaphoreGive(g_bus_lock);
 }
 
 void uc1701_set_pixel(uc1701_t *disp, uint8_t x, uint8_t y, uint8_t color)

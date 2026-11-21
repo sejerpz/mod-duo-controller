@@ -134,6 +134,10 @@ void widget_listbox2(glcd_t *display, listbox_t *listbox);
 void widget_listbox4(glcd_t *display, listbox_t *listbox);
 void widget_bar(glcd_t *display, bar_t *bar);
 void widget_toggle(glcd_t *display, toggle_t *toggle);
+// the small encoder of the Dwarf, for a knob that shares its display with a plugin widget: `label` is the value
+void widget_bar_encoder(glcd_t *display, bar_t *bar);
+void widget_list_value(glcd_t *display, listbox_t *listbox);
+void widget_toggle_small(glcd_t *display, toggle_t *toggle);
 void widget_peakmeter(glcd_t *display, uint8_t pkm_id, peakmeter_t *pkm);
 void widget_tuner(glcd_t *display, tuner_t *tuner);
 void widget_popup(glcd_t *display, popup_t *popup);

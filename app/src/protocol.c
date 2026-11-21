@@ -20,6 +20,7 @@
 #include "cli.h"
 #include "mod-protocol.h"
 #include "mode_builder.h"
+#include "widget_area.h"
 
 /*
 ************************************************************************************************************************
@@ -113,11 +114,71 @@ static int is_wildcard(const char *str)
 ************************************************************************************************************************
 */
 
+// a decimal integer, with its sign, and the spaces after it; NULL when there is none
+static const char *read_int(const char *p, int16_t *value)
+{
+    int32_t v = 0;
+    uint8_t negative = 0, digits = 0;
+
+    if (*p == '-')
+    {
+        negative = 1;
+        p++;
+    }
+
+    for (; *p >= '0' && *p <= '9'; p++, digits++)
+        v = v * 10 + (*p - '0');
+
+    if (!digits) return NULL;
+
+    *value = (int16_t)(negative ? -v : v);
+
+    while (*p == ' ') p++;
+    return p;
+}
+
+// sys_wbm and sys_wcl, the widget bitmaps and clears: hundreds a second, each with hundreds of hex digits.
+// Read here in one pass, without what the generic path costs for every character of them: the split into
+// a list, parse_quote on every argument, the search among the commands. 0 when the message is not one of
+// them, or not well formed: the generic path takes it then, and answers that it does not know it.
+static uint8_t parse_widget_command(msg_t *msg)
+{
+    const char *p = msg->data;
+    uint8_t bitmap;
+
+    if (msg->sender_id != SYSTEM_SERIAL) return 0;
+
+    if (strncmp(p, "sys_wbm ", 8) == 0) bitmap = 1;
+    else if (strncmp(p, "sys_wcl ", 8) == 0) bitmap = 0;
+    else return 0;
+
+    // the data length after the command
+    p += 8;
+    while (*p && *p != ' ') p++;
+    while (*p == ' ') p++;
+
+    int16_t area_id, x, y, width, height;
+    if (!(p = read_int(p, &area_id)) || !(p = read_int(p, &x)) || !(p = read_int(p, &y)) ||
+        !(p = read_int(p, &width)) || !(p = read_int(p, &height)))
+        return 0;
+
+    if (bitmap && !*p) return 0;
+
+    // bitmaps for an area that is not in view are dropped without complaint: the plugin may still be drawing
+    // the page the user just left, and it redraws everything when the area is in view again
+    WA_draw(area_id, x, y, width, height, bitmap ? p : NULL);
+
+    SEND_TO_SENDER(msg->sender_id, "r 0", 3);
+    return 1;
+}
+
 void protocol_parse(msg_t *msg)
 {
     uint32_t i, j;
     int32_t index = NOT_FOUND;
     proto_t proto;
+
+    if (parse_widget_command(msg)) return;
 
     proto.list = strarr_split(msg->data, ' ');
     proto.list_count = strarr_length(proto.list);
@@ -295,6 +356,8 @@ void protocol_init(void)
     protocol_add_command(CMD_PEDALBOARD_CHANGE, cb_pedalboard_change);
     protocol_add_command(CMD_SNAPSHOT_NAME_SET, cb_snapshot_name);
     protocol_add_command(CMD_SCREENSHOT, cb_screenshot);
+    protocol_add_command(CMD_WIDGET_AREA_ADD, cb_widget_area_add);
+    protocol_add_command(CMD_WIDGET_AREA_REMOVE, cb_widget_area_remove);
 }
 
 /*
@@ -669,4 +732,30 @@ void cb_snapshot_name(proto_t *proto)
 
     g_protocol_busy = false;
     system_lock_comm_serial(g_protocol_busy);
+}
+
+// mod-ui places the areas on both displays side by side, x 0 to 255
+void cb_widget_area_add(proto_t *proto)
+{
+    const glcd_rect_t rect = {
+        atoi(proto->list[4]), atoi(proto->list[5]), atoi(proto->list[6]), atoi(proto->list[7])
+    };
+    uint8_t displays;
+
+    if (!WA_add(atoi(proto->list[3]), atoi(proto->list[1]), atoi(proto->list[2]), &rect, &displays))
+    {
+        protocol_send_response(CMD_RESPONSE, INVALID_ARGUMENT, proto);
+        return;
+    }
+
+    naveg_print_control_screens(displays);
+
+    protocol_send_response(CMD_RESPONSE, 0, proto);
+}
+
+void cb_widget_area_remove(proto_t *proto)
+{
+    naveg_print_control_screens(WA_remove(atoi(proto->list[1])));
+
+    protocol_send_response(CMD_RESPONSE, 0, proto);
 }

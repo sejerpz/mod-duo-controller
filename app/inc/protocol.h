@@ -16,6 +16,7 @@
 */
 
 #include <stdint.h>
+#include "config.h"
 #include "comm.h"
 #include "mod-protocol.h"
 
@@ -34,7 +35,7 @@
 */
 
 // defines the function to send responses to sender
-#define SEND_TO_SENDER(id,msg,len)      comm_webgui_send(msg,len)
+#define SEND_TO_SENDER(id,msg,len)      ((id) == SYSTEM_SERIAL ? comm_system_send(msg,len) : comm_webgui_send(msg,len))
 
 // special "flag" to indicate banks control (last available bitmask value for a 16bit integer)
 #define FLAG_CONTROL_BANKS 0x4000
@@ -115,6 +116,8 @@ void cb_pedalboard_name(proto_t *proto);
 void cb_pedalboard_change(proto_t *proto);
 void cb_snapshot_name(proto_t *proto);
 void cb_screenshot(proto_t *proto);
+void cb_widget_area_add(proto_t *proto);
+void cb_widget_area_remove(proto_t *proto);
 
 // the display asked by the last screenshot command, one based, 0 when none is pending
 extern volatile uint8_t g_screenshot;

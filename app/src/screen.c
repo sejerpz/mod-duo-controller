@@ -16,6 +16,7 @@
 #include "plugin_map.h"
 #include "glcd_clip.h"
 #include "mode_builder.h"
+#include "widget_area.h"
 #include <string.h>
 
 
@@ -125,6 +126,103 @@ static void value_to_text(float value, char *text)
 
 
 /*
+ * A knob next to a plugin widget that takes the other half of its rows: drawn the way the Dwarf draws its
+ * encoders, its name over a thin bar and the value under it, in a box `width` wide. The rows run from y to
+ * y + 24.
+ */
+static void print_small_encoder(glcd_t *display, uint8_t display_id, const control_t *control, uint8_t x, uint8_t y,
+                                uint8_t width)
+{
+    static char *labels_list[64];
+    char buffer[17];
+    const uint8_t chars = width / 4;
+    const uint8_t middle = x + (width / 2);
+
+    //no control
+    if (!control)
+    {
+        strcpy(buffer, "KNOB #");
+        buffer[5] = display_id + '1';
+        glcd_text(display, middle - 2*strlen(buffer), y + 10, buffer, Terminal3x5, GLCD_BLACK);
+        return;
+    }
+
+    //the name, as much of it as the width takes
+    strncpy(buffer, control->label, chars);
+    buffer[chars] = '\0';
+    glcd_text(display, middle - 2*strlen(buffer), y, buffer, Terminal3x5, GLCD_BLACK);
+
+    // list type control
+    if (control->properties & (FLAG_CONTROL_ENUMERATION | FLAG_CONTROL_SCALE_POINTS))
+    {
+        uint8_t count = control->scale_points_count > 64 ? 64 : control->scale_points_count;
+
+        uint8_t i;
+        for (i = 0; i < count; i++)
+        {
+            labels_list[i] = control->scale_points[i]->label;
+        }
+
+        listbox_t list;
+        list.x = x;
+        list.y = y + 7;
+        list.width = width;
+        list.height = 19;
+        list.color = GLCD_BLACK;
+        list.selected = control->step;
+        list.count = count;
+        list.list = labels_list;
+        widget_list_value(display, &list);
+    }
+    else if (control->properties & (FLAG_CONTROL_TOGGLED | FLAG_CONTROL_BYPASS))
+    {
+        toggle_t toggle;
+        toggle.x = x;
+        toggle.y = y + 6;
+        toggle.width = width;
+        toggle.height = 18;
+        toggle.color = GLCD_BLACK;
+        toggle.value = (control->properties & FLAG_CONTROL_TOGGLED)?control->value:!control->value;
+        widget_toggle_small(display, &toggle);
+    }
+    //linear / log / int
+    else
+    {
+        char str_bfr[15] = {0};
+
+        if ((control->properties & FLAG_CONTROL_INTEGER) || (control->value > 999.9f) || (control->value < -999.9f))
+            int_to_str(control->value, str_bfr, sizeof(str_bfr), 0);
+        else if ((control->value > 99.99f) || (control->value < -99.99f))
+            float_to_str((control->value), str_bfr, sizeof(str_bfr), 1);
+        else if ((control->value > 9.99f) || (control->value < -9.99f))
+            float_to_str((control->value), str_bfr, sizeof(str_bfr), 2);
+        else
+            float_to_str((control->value), str_bfr, sizeof(str_bfr), 3);
+
+        str_bfr[chars < sizeof(str_bfr) ? chars : sizeof(str_bfr) - 1] = '\0';
+
+        bar_t bar;
+        bar.x = x;
+        bar.y = y;
+        bar.width = width;
+        bar.height = 6;
+        bar.color = GLCD_BLACK;
+        bar.step = control->step;
+        bar.steps = control->steps - 1;
+        bar.label = str_bfr;
+        widget_bar_encoder(display, &bar);
+
+        if (strcmp("", control->unit) != 0)
+        {
+            strncpy(buffer, control->unit, chars);
+            buffer[chars] = '\0';
+            glcd_text(display, middle - 2*strlen(buffer), y + 19, buffer, Terminal3x5, GLCD_BLACK);
+        }
+    }
+}
+
+
+/*
 ************************************************************************************************************************
 *           GLOBAL FUNCTIONS
 ************************************************************************************************************************
@@ -138,6 +236,18 @@ void screen_clear(uint8_t display_id)
 void screen_encoder(uint8_t display_id, control_t *control)
 {    
     glcd_t *display = hardware_glcds(display_id);
+
+    //a plugin widget on one half of the knob rows: the knob takes the other half, drawn small. The right half
+    //keeps clear of the controls index in its corner.
+    static const glcd_rect_t knob_rows = { 0, 10, DISPLAY_WIDTH, 40 };
+    const uint8_t halves = WA_halves(display_id, &knob_rows);
+    if (halves == 1 || halves == 2)
+    {
+        glcd_rect_fill(display, 0, 9, DISPLAY_WIDTH - 11, 15, GLCD_WHITE);
+        glcd_rect_fill(display, 0, 24, DISPLAY_WIDTH, 26, GLCD_WHITE);
+        print_small_encoder(display, display_id, control, (halves == 1) ? 67 : 8, 18, 48);
+        return;
+    }
 
     //no control? 
     if (!control)

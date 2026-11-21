@@ -12,6 +12,7 @@
 #include "serial.h"
 
 #include "FreeRTOS.h"
+#include "task.h"
 #include "semphr.h"
 /*
 ************************************************************************************************************************
@@ -20,6 +21,7 @@
 */
 
 #define WEBGUI_MAX_SEM_COUNT   5
+#define SYSTEM_MAX_SEM_COUNT   5
 
 
 /*
@@ -54,6 +56,8 @@ static  menu_item_t *g_current_item;
 static volatile uint8_t  g_webgui_blocked;
 static volatile xSemaphoreHandle g_webgui_sem = NULL;
 static  ringbuff_t *g_webgui_rx_rb;
+static volatile xSemaphoreHandle g_system_sem = NULL;
+static  ringbuff_t *g_system_rx_rb;
 
 
 /*
@@ -100,6 +104,31 @@ static void webgui_rx_cb(serial_t *serial)
 }
 
 
+// in the receive interrupt: as little as it can, at 1500000 baud the FIFO fills in a few tens of microseconds
+static void system_rx_cb(serial_t *serial)
+{
+    uint8_t buffer[SERIAL3_RX_BUFF_SIZE];
+    uint32_t size = serial_read(serial->uart_id, buffer, sizeof(buffer));
+    if (size > 0)
+    {
+        ringbuff_write(g_system_rx_rb, buffer, size);
+        // check end of message
+        uint32_t i;
+        for (i = 0; i < size; i++)
+        {
+            if (buffer[i] == 0)
+            {
+                portBASE_TYPE xHigherPriorityTaskWoken;
+                xHigherPriorityTaskWoken = pdFALSE;
+                xSemaphoreGiveFromISR(g_system_sem, &xHigherPriorityTaskWoken);
+                portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+                break;
+            }
+        }
+    }
+}
+
+
 /*
 ************************************************************************************************************************
 *           GLOBAL FUNCTIONS
@@ -112,6 +141,11 @@ void comm_init(void)
     g_webgui_rx_rb = ringbuff_create(WEBGUI_COMM_RX_BUFF_SIZE);
 
     serial_set_callback(WEBGUI_SERIAL, webgui_rx_cb);
+
+    g_system_sem = xSemaphoreCreateCounting(SYSTEM_MAX_SEM_COUNT, 0);
+    g_system_rx_rb = ringbuff_create(SYSTEM_COMM_RX_BUFF_SIZE);
+
+    serial_set_callback(SYSTEM_SERIAL, system_rx_cb);
 }
 
 void comm_webgui_send(const char *data, uint32_t data_size)
@@ -153,9 +187,17 @@ void comm_webgui_response_cb(void *data)
 }
 
 // the flag went up when the command was sent, see comm_webgui_send()
+// A tick at a time: a spin would keep the tasks below the caller off the processor until mod-ui
+// answers, the display task among them, and a display only it sends would freeze while a knob turns.
 void comm_webgui_wait_response(void)
 {
-    while (g_webgui_blocked);
+    const uint8_t can_sleep = xTaskGetSchedulerState() == taskSCHEDULER_RUNNING;
+
+    while (g_webgui_blocked)
+    {
+        if (can_sleep)
+            vTaskDelay(1);
+    }
 }
 
 /*
@@ -182,4 +224,20 @@ void comm_webgui_clear(void)
 void comm_webgui_clear_tx_buffer(void)
 {
     serial_flush_tx_buffer(WEBGUI_SERIAL);
+}
+
+// Only answers go to the system: the Duo sends no commands of its own there, so there is no wait to begin
+void comm_system_send(const char *data, uint32_t data_size)
+{
+    serial_send(SYSTEM_SERIAL, (const uint8_t*)data, data_size+1);
+}
+
+ringbuff_t* comm_system_read(void)
+{
+    if (xSemaphoreTake(g_system_sem, portMAX_DELAY) == pdTRUE)
+    {
+        return g_system_rx_rb;
+    }
+
+    return NULL;
 }

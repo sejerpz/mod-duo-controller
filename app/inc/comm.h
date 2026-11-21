@@ -82,6 +82,12 @@ void comm_webgui_clear(void);
 // drop what is still waiting to be sent
 void comm_webgui_clear_tx_buffer(void);
 
+//// system communication functions, the line to mod-system-control
+// sends a message to the system
+void comm_system_send(const char *data, uint32_t data_size);
+// read a message from the system
+ringbuff_t* comm_system_read(void);
+
 /*
 ************************************************************************************************************************
 *           CONFIGURATION ERRORS

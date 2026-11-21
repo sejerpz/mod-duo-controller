@@ -452,6 +452,104 @@ void widget_toggle(glcd_t *display, toggle_t *toggle)
     }
 }
 
+// The value under a thin bar, as the Dwarf draws an encoder: the bar takes rows 6 to 6 + height of the box,
+// the value goes under it, both centred on its width
+void widget_bar_encoder(glcd_t *display, bar_t *bar)
+{
+    //draw the value
+    glcd_text(display, (bar->x - 2*strlen(bar->label)) + (bar->width / 2) + 1, bar->y + 13, bar->label, Terminal3x5, GLCD_BLACK);
+
+    float OldRange, NewRange, NewValue;
+    int32_t bar_possistion, NewMax, NewMin;
+
+    NewMin = 1;
+    NewMax = bar->width - 2;
+
+    OldRange = (bar->steps);
+    NewRange = (NewMax - NewMin);
+
+    NewValue = (((bar->step) * NewRange) / OldRange) + NewMin;
+    bar_possistion = ROUND(NewValue);
+
+    //draw the square
+    glcd_rect(display, bar->x, bar->y+6, bar->width, bar->height, GLCD_BLACK);
+
+    //prevent it from trippin
+    if (bar_possistion < 1) bar_possistion = 1;
+    if (bar_possistion > bar->width - 2) bar_possistion = bar->width - 2;
+
+    //color in the position area
+    glcd_rect_fill(display, (bar->x+1), (bar->y+7), bar_possistion, bar->height - 2, GLCD_BLACK);
+}
+
+// The selected item of a list, inverted, with an arrow above and below while there are items that way
+void widget_list_value(glcd_t *display, listbox_t *listbox)
+{
+    //clear
+    glcd_rect_fill(display, listbox->x, listbox->y, listbox->width, listbox->height, ~listbox->color);
+
+    //as many characters as the width takes
+    char value_str_bfr[17] = {0};
+    uint8_t chars = listbox->width / 4;
+    if (chars > sizeof(value_str_bfr) - 1) chars = sizeof(value_str_bfr) - 1;
+
+    strncpy(value_str_bfr, listbox->list[listbox->selected], chars);
+    value_str_bfr[chars] = '\0';
+
+    //allign to middle, (full width / 2) - (text width / 2)
+    glcd_text(display, (listbox->x + (listbox->width / 2) - 2*strlen(value_str_bfr)) + 1, listbox->y + 6, value_str_bfr,
+              Terminal3x5, GLCD_BLACK);
+
+    //invert text area
+    glcd_rect_invert(display, listbox->x, listbox->y+5, listbox->width, 7);
+
+    const uint8_t middle = listbox->x + (listbox->width / 2);
+    uint8_t i;
+
+    //check if we need to draw arrow down
+    if (listbox->selected != (listbox->count-1))
+    {
+        for (i = 0; i < 4; i++)
+        {
+            glcd_hline(display, middle - 3 + i, listbox->y + 13 + i, 1, GLCD_BLACK);
+            glcd_hline(display, middle + 3 - i, listbox->y + 13 + i, 1, GLCD_BLACK);
+        }
+    }
+
+    //check if we need to draw arrow up
+    if (listbox->selected != 0)
+    {
+        for (i = 0; i < 4; i++)
+        {
+            glcd_hline(display, middle - 3 + i, listbox->y + 3 - i, 1, GLCD_BLACK);
+            glcd_hline(display, middle + 3 - i, listbox->y + 3 - i, 1, GLCD_BLACK);
+        }
+    }
+}
+
+// ON inverted inside a double border, OFF inside it, in the small font
+void widget_toggle_small(glcd_t *display, toggle_t *toggle)
+{
+    //draw the square
+    glcd_rect(display, toggle->x, toggle->y, toggle->width, toggle->height, GLCD_BLACK);
+
+    const uint8_t y = toggle->y + ((toggle->height - 5)/2);
+
+    if (toggle->value == 1)
+    {
+        glcd_text(display, toggle->x + (toggle->width / 2) - 4, y, "ON", Terminal3x5, GLCD_BLACK);
+
+        //color in the position area
+        glcd_rect_invert(display, toggle->x+2, toggle->y+2, toggle->width -4, toggle->height - 4);
+    }
+    else
+    {
+        glcd_text(display, toggle->x + (toggle->width / 2) - 6, y, "OFF", Terminal3x5, GLCD_BLACK);
+
+        glcd_rect(display, toggle->x+2, toggle->y+2, toggle->width -4, toggle->height - 4, GLCD_BLACK);
+    }
+}
+
 
 // FIXME: this widget is hardcoded
 void widget_peakmeter(glcd_t *display, uint8_t pkm_id, peakmeter_t *pkm)

@@ -93,6 +93,11 @@ void naveg_next_control(uint8_t display);
 void naveg_toggle_tool(uint8_t tool, uint8_t display);
 // returns if display is in tool mode
 uint8_t naveg_is_tool_mode(uint8_t display);
+// whether the display shows the control screen: not the boot logo, a tool or the builder
+uint8_t naveg_shows_control_screen(uint8_t display);
+// prints the control screen again on the displays given, one bit each (bit 0 the left one), when they show it:
+// what the plugin widgets need when one comes or goes
+void naveg_print_control_screens(uint8_t displays);
 //toggle / set master volume 
 void naveg_master_volume(uint8_t set);
 //increments the mater volume

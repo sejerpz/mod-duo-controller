@@ -111,6 +111,8 @@ typedef struct UC1701_T {
 void uc1701_init(uc1701_t *disp);
 void uc1701_backlight(uc1701_t *disp, uint8_t state);
 void uc1701_clear(uc1701_t *disp, uint8_t color);
+// draws over the buffer just before uc1701_update() sends it; weak, the application may give its own
+void uc1701_before_update(uc1701_t *disp);
 void uc1701_update(uc1701_t *disp);
 void uc1701_set_pixel(uc1701_t *disp, uint8_t x, uint8_t y, uint8_t color);
 void uc1701_hline(uc1701_t *disp, uint8_t x, uint8_t y, uint8_t width, uint8_t color);
