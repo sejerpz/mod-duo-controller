@@ -821,9 +821,9 @@ void screen_bp_list_on(uint8_t display_id, const char *title, bp_list_t *list)
 }
 
 // the right display while the footswitch browser is up: what it lists, and what the footswitches do
-void screen_browser_keys(const char *title, const char *click, const char *hold)
+void screen_browser_keys(const char *title, const char *click, const char *hold, const char *knob)
 {
-    const char *keys[] = {click, hold, "HOLD FS1: EXIT", NULL};
+    const char *keys[] = {click, hold, "HOLD FS1: EXIT", knob, NULL};
 
     glcd_t *display = hardware_glcds(DISPLAY_RIGHT);
     glcd_clear(display, GLCD_WHITE);
@@ -853,7 +853,7 @@ void screen_browser_keys(const char *title, const char *click, const char *hold)
         box.width = 0;
         box.height = 0;
         box.x = 4;
-        box.y = 18 + i * 13;
+        box.y = 15 + i * 11;
         box.text = keys[i];
         widget_textbox(display, &box);
     }

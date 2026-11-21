@@ -116,7 +116,8 @@ static uint8_t g_scroll_dir = 1;
  * a click moves the cursor up (first) or down (second) and loads the pedalboard or snapshot it
  * lands on, the browser staying open; the second held goes up a level, from the snapshots to
  * the pedalboards and from these to the banks, where it opens the bank under the cursor; the
- * first held goes back to the controls. In the banks a click only moves.
+ * first held goes back to the controls. In the banks a click only moves. The first knob, under
+ * the list, scrolls it without loading, and its click loads, or opens the bank.
  */
 enum {BROWSER_OFF, BROWSER_PEDALBOARDS, BROWSER_BANKS, BROWSER_SNAPSHOTS};
 static uint8_t g_browser = BROWSER_OFF;
@@ -1521,11 +1522,11 @@ static void browser_keys(void)
     if (g_browser_loading)
         screen_browser_loading(g_browser_loading_name);
     else if (g_browser == BROWSER_PEDALBOARDS)
-        screen_browser_keys("PEDALBOARDS", "FS1/FS2: PREV/NEXT", "HOLD FS2: BANKS");
+        screen_browser_keys("PEDALBOARDS", "FS1/FS2: PREV/NEXT", "HOLD FS2: BANKS", "KNOB 1: SCROLL, CLICK LOAD");
     else if (g_browser == BROWSER_BANKS)
-        screen_browser_keys("BANKS", "FS1/FS2: UP/DOWN", "HOLD FS2: OPEN BANK");
+        screen_browser_keys("BANKS", "FS1/FS2: UP/DOWN", "HOLD FS2: OPEN BANK", "KNOB 1: SCROLL, CLICK OPEN");
     else
-        screen_browser_keys("SNAPSHOTS", "FS1/FS2: PREV/NEXT", "HOLD FS2: PEDALBOARDS");
+        screen_browser_keys("SNAPSHOTS", "FS1/FS2: PREV/NEXT", "HOLD FS2: PEDALBOARDS", "KNOB 1: SCROLL, CLICK LOAD");
 }
 
 // the pedalboards of the current bank, on the current pedalboard
@@ -1608,23 +1609,42 @@ static void browser_close(uint8_t redraw)
     draw_control_screen(DISPLAY_RIGHT);
 }
 
-// a click: the pedalboard or snapshot the cursor lands on is loaded right away
-static void browser_move(int8_t dir)
+// moves the cursor, without loading: 1 when it moved
+static uint8_t browser_scroll(int8_t dir)
 {
-    if (g_browser == BROWSER_PEDALBOARDS)
+    if (g_browser == BROWSER_PEDALBOARDS || g_browser == BROWSER_BANKS)
     {
-        if (!g_banks || !g_naveg_pedalboards || naveg_ui_status()) return;
+        if (!g_banks || naveg_ui_status()) return 0;
 
-        uint16_t hover = g_naveg_pedalboards->hover;
+        bp_list_t *list = (g_browser == BROWSER_PEDALBOARDS) ? g_naveg_pedalboards : g_banks;
+        if (!list) return 0;
+
+        uint16_t hover = list->hover;
 
         // the first line, "< Back to bank list", is hidden here: the cursor is before the first
         // pedalboard only on entering a bank, see bp_draw()
-        if (dir < 0 && hover <= 1) return;
+        if (g_browser == BROWSER_PEDALBOARDS && dir < 0 && hover <= 1) return 0;
 
         if (dir < 0) bp_up();
         else bp_down();
 
-        if (!g_naveg_pedalboards || g_naveg_pedalboards->hover == hover) return;
+        list = (g_browser == BROWSER_PEDALBOARDS) ? g_naveg_pedalboards : g_banks;
+        return list && list->hover != hover;
+    }
+
+    if (!snapshots_move(dir)) return 0;
+
+    snapshots_draw();
+    return 1;
+}
+
+// loads the pedalboard or snapshot under the cursor
+static void browser_load(void)
+{
+    if (g_browser == BROWSER_PEDALBOARDS)
+    {
+        // nothing under the cursor yet, on entering a bank
+        if (!g_banks || !g_naveg_pedalboards || naveg_ui_status() || !g_naveg_pedalboards->hover) return;
 
         const char *name = g_naveg_pedalboards->names[g_naveg_pedalboards->hover - g_naveg_pedalboards->page_min];
         strncpy(g_browser_loading_name, name, sizeof(g_browser_loading_name) - 1);
@@ -1641,14 +1661,7 @@ static void browser_move(int8_t dir)
         // mod-ui names the snapshot of the new pedalboard, if its descriptor lets it
         g_current_snapshot = -1;
     }
-    else if (g_browser == BROWSER_BANKS)
-    {
-        if (naveg_ui_status()) return;
-
-        if (dir < 0) bp_up();
-        else bp_down();
-    }
-    else if (snapshots_move(dir))
+    else if (g_browser == BROWSER_SNAPSHOTS && g_snapshots)
     {
         // without hmi_set_ss_name in its descriptor, mod-ui does not tell
         g_current_snapshot = g_snapshots->hover;
@@ -1656,6 +1669,12 @@ static void browser_move(int8_t dir)
 
         send_load_snapshot(g_snapshots->uids[g_snapshots->hover - g_snapshots->page_min]);
     }
+}
+
+// a footswitch click: the pedalboard or snapshot the cursor lands on is loaded right away
+static void browser_move(int8_t dir)
+{
+    if (browser_scroll(dir)) browser_load();
 }
 
 // the second footswitch held: up a level, or into the bank under the cursor
@@ -3722,8 +3741,15 @@ void naveg_enter(uint8_t display)
 {
     if ((!g_initialized)&&(g_update_cb)) return;
 
-    // the browser has the footswitches only
-    if (g_browser) return;
+    // the browser takes the first knob, under its list: a click loads, or opens a bank
+    if (g_browser)
+    {
+        if (display != DISPLAY_LEFT) return;
+
+        if (g_browser == BROWSER_BANKS) browser_up();
+        else browser_load();
+        return;
+    }
 
     if (BM_is_active())
     {
@@ -3766,8 +3792,12 @@ void naveg_up(uint8_t display)
 {
     if (!g_initialized) return;
 
-    // the browser has the footswitches only
-    if (g_browser) return;
+    // the browser takes the first knob, under its list: a turn only moves
+    if (g_browser)
+    {
+        if (display == DISPLAY_LEFT) browser_scroll(-1);
+        return;
+    }
 
     if (BM_is_active())
     {
@@ -3819,8 +3849,12 @@ void naveg_down(uint8_t display)
 {
     if (!g_initialized) return;
 
-    // the browser has the footswitches only
-    if (g_browser) return;
+    // the browser takes the first knob, under its list: a turn only moves
+    if (g_browser)
+    {
+        if (display == DISPLAY_LEFT) browser_scroll(1);
+        return;
+    }
 
     if (BM_is_active())
     {

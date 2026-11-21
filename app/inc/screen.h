@@ -168,7 +168,7 @@ void screen_footer(uint8_t display_id, const char *name, const char *value, int1
 void screen_tool(uint8_t tool, uint8_t display_id);
 void screen_bp_list(const char *title, bp_list_t *list);
 void screen_bp_list_on(uint8_t display_id, const char *title, bp_list_t *list);
-void screen_browser_keys(const char *title, const char *click, const char *hold);
+void screen_browser_keys(const char *title, const char *click, const char *hold, const char *knob);
 void screen_browser_loading(const char *name);
 void screen_browser_ui_connected(void);
 void screen_system_menu(menu_item_t *item);
