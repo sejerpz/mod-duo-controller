@@ -765,7 +765,8 @@ void screen_bp_list_on(uint8_t display_id, const char *title, bp_list_t *list)
     // draws the title
     title_box.color = GLCD_BLACK;
     title_box.mode = TEXT_SINGLE_LINE;
-    title_box.font = Terminal3x5;
+    // the browser title matches the one of its keys on the right display
+    title_box.font = (display_id == DISPLAY_LEFT) ? Terminal5x7 : Terminal3x5;
     title_box.top_margin = 0;
     title_box.bottom_margin = 0;
     title_box.left_margin = 0;
@@ -879,11 +880,13 @@ void screen_browser_ui_connected(void)
     box.width = 0;
     box.text = "PEDALBOARDS";
     box.align = ALIGN_CENTER_TOP;
+    box.font = Terminal5x7;
     widget_textbox(display, &box);
 
     glcd_hline(display, 0, 9, DISPLAY_WIDTH, GLCD_BLACK_WHITE);
 
     uint8_t i;
+    box.font = Terminal3x5;
     box.align = ALIGN_NONE_NONE;
     for (i = 0; lines[i]; i++)
     {
