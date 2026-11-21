@@ -1320,7 +1320,11 @@ static uint8_t bp_select(void)
     }
 
     if (!g_naveg_pedalboards)
+    {
+        // the browser says so rather than leave its display blank
+        if (g_browser) screen_bp_list_on(DISPLAY_LEFT, title, NULL);
         return loaded;
+    }
 
     //check if we need to display the selected item or out of bounds
     if (g_current_bank == g_banks->hover)
@@ -1530,6 +1534,13 @@ static void browser_pedalboards(void)
     g_browser = BROWSER_PEDALBOARDS;
     browser_keys();
 
+    // mod-ui keeps the banks from the HMI while the web interface is connected: the list says so
+    if (naveg_ui_status())
+    {
+        screen_browser_ui_connected();
+        return;
+    }
+
     request_banks_list(PAGE_DIR_INIT);
     if (!g_banks) return;
 
@@ -1602,7 +1613,7 @@ static void browser_move(int8_t dir)
 {
     if (g_browser == BROWSER_PEDALBOARDS)
     {
-        if (!g_banks || !g_naveg_pedalboards) return;
+        if (!g_banks || !g_naveg_pedalboards || naveg_ui_status()) return;
 
         uint16_t hover = g_naveg_pedalboards->hover;
 
@@ -1632,6 +1643,8 @@ static void browser_move(int8_t dir)
     }
     else if (g_browser == BROWSER_BANKS)
     {
+        if (naveg_ui_status()) return;
+
         if (dir < 0) bp_up();
         else bp_down();
     }
@@ -1650,7 +1663,7 @@ static void browser_up(void)
 {
     if (g_browser == BROWSER_PEDALBOARDS)
     {
-        if (!g_banks) return;
+        if (!g_banks || naveg_ui_status()) return;
 
         g_browser = BROWSER_BANKS;
         g_bp_state = BANKS_LIST;
@@ -1659,7 +1672,7 @@ static void browser_up(void)
     }
     else if (g_browser == BROWSER_BANKS)
     {
-        if (!g_banks) return;
+        if (!g_banks || naveg_ui_status()) return;
 
         // a bank other than the current one has nothing loaded: the cursor is before its first pedalboard
         g_browser = BROWSER_PEDALBOARDS;

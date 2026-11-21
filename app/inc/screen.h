@@ -170,6 +170,7 @@ void screen_bp_list(const char *title, bp_list_t *list);
 void screen_bp_list_on(uint8_t display_id, const char *title, bp_list_t *list);
 void screen_browser_keys(const char *title, const char *click, const char *hold);
 void screen_browser_loading(const char *name);
+void screen_browser_ui_connected(void);
 void screen_system_menu(menu_item_t *item);
 void screen_tuner(float frequency, char *note, int8_t cents);
 void screen_tuner_input(uint8_t input);
