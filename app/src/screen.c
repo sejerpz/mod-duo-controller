@@ -745,13 +745,19 @@ void screen_tool(uint8_t tool, uint8_t display_id)
 
 void screen_bp_list(const char *title, bp_list_t *list)
 {
-    if (!naveg_is_tool_mode(DISPLAY_RIGHT))
+    screen_bp_list_on(DISPLAY_RIGHT, title, list);
+}
+
+// the footswitch browser lists on the left display
+void screen_bp_list_on(uint8_t display_id, const char *title, bp_list_t *list)
+{
+    if (!naveg_is_tool_mode(display_id))
         return; 
 
     listbox_t list_box;
     textbox_t title_box;
 
-    glcd_t *display = hardware_glcds(1);
+    glcd_t *display = hardware_glcds(display_id);
 
     // clears the title
     glcd_rect_fill(display, 0, 0, DISPLAY_WIDTH, 9, GLCD_WHITE);
@@ -759,7 +765,8 @@ void screen_bp_list(const char *title, bp_list_t *list)
     // draws the title
     title_box.color = GLCD_BLACK;
     title_box.mode = TEXT_SINGLE_LINE;
-    title_box.font = Terminal3x5;
+    // the browser title matches the one of its keys on the right display
+    title_box.font = (display_id == DISPLAY_LEFT) ? Terminal5x7 : Terminal3x5;
     title_box.top_margin = 0;
     title_box.bottom_margin = 0;
     title_box.left_margin = 0;
@@ -812,6 +819,118 @@ void screen_bp_list(const char *title, bp_list_t *list)
             widget_textbox(display, &message);
         }
     }
+}
+
+// the right display while the footswitch browser is up: what it lists, and what the footswitches do
+void screen_browser_keys(const char *title, const char *click, const char *hold, const char *knob)
+{
+    const char *keys[] = {click, hold, "HOLD FS1: EXIT", knob, "KNOB 2: CLICK AS HOLD FS2", NULL};
+
+    glcd_t *display = hardware_glcds(DISPLAY_RIGHT);
+    glcd_clear(display, GLCD_WHITE);
+
+    textbox_t box;
+    box.color = GLCD_BLACK;
+    box.mode = TEXT_SINGLE_LINE;
+    box.font = Terminal5x7;
+    box.top_margin = 0;
+    box.bottom_margin = 0;
+    box.left_margin = 0;
+    box.right_margin = 0;
+    box.height = 0;
+    box.width = 0;
+    box.text = title;
+    box.align = ALIGN_CENTER_TOP;
+    widget_textbox(display, &box);
+
+    glcd_hline(display, 0, 9, DISPLAY_WIDTH, GLCD_BLACK_WHITE);
+
+    uint8_t i;
+    box.font = Terminal3x5;
+    box.align = ALIGN_NONE_NONE;
+    for (i = 0; keys[i]; i++)
+    {
+        // the widget keeps the size of the last text it drew
+        box.width = 0;
+        box.height = 0;
+        box.x = 4;
+        box.y = 14 + i * 10;
+        box.text = keys[i];
+        widget_textbox(display, &box);
+    }
+}
+
+// the left display of the browser while mod-ui keeps the banks from the HMI, the web interface being connected
+void screen_browser_ui_connected(void)
+{
+    static const char *lines[] = {"CLOSE THE WEB INTERFACE", "TO BROWSE THE BANKS", "AND THE PEDALBOARDS", NULL};
+
+    glcd_t *display = hardware_glcds(DISPLAY_LEFT);
+    glcd_clear(display, GLCD_WHITE);
+
+    textbox_t box;
+    box.color = GLCD_BLACK;
+    box.mode = TEXT_SINGLE_LINE;
+    box.font = Terminal3x5;
+    box.top_margin = 0;
+    box.bottom_margin = 0;
+    box.left_margin = 0;
+    box.right_margin = 0;
+    box.height = 0;
+    box.width = 0;
+    box.text = "PEDALBOARDS";
+    box.align = ALIGN_CENTER_TOP;
+    box.font = Terminal5x7;
+    widget_textbox(display, &box);
+
+    glcd_hline(display, 0, 9, DISPLAY_WIDTH, GLCD_BLACK_WHITE);
+
+    uint8_t i;
+    box.font = Terminal3x5;
+    box.align = ALIGN_NONE_NONE;
+    for (i = 0; lines[i]; i++)
+    {
+        // the widget keeps the size of the last text it drew
+        box.width = 0;
+        box.height = 0;
+        box.x = (DISPLAY_WIDTH - strlen(lines[i]) * 4) / 2;
+        box.y = 22 + i * 10;
+        box.text = lines[i];
+        widget_textbox(display, &box);
+    }
+}
+
+// the right display of the browser while a pedalboard loads; the name only when known
+void screen_browser_loading(const char *name)
+{
+    glcd_t *display = hardware_glcds(DISPLAY_RIGHT);
+    glcd_clear(display, GLCD_WHITE);
+
+    textbox_t box;
+    box.color = GLCD_BLACK;
+    box.mode = TEXT_SINGLE_LINE;
+    box.font = Terminal5x7;
+    box.top_margin = 0;
+    box.bottom_margin = 0;
+    box.left_margin = 0;
+    box.right_margin = 0;
+    box.height = 0;
+    box.width = 0;
+    box.text = "LOADING...";
+    box.align = ALIGN_NONE_NONE;
+    box.x = (DISPLAY_WIDTH - 10 * 6) / 2;
+    box.y = 20;
+    widget_textbox(display, &box);
+
+    if (!name || !*name) return;
+
+    // the widget keeps the size of the last text it drew
+    box.width = 0;
+    box.height = 0;
+    box.text = name;
+    box.x = (DISPLAY_WIDTH - strlen(name) * 6) / 2;
+    box.y = 36;
+    widget_textbox(display, &box);
 }
 
 void screen_system_menu(menu_item_t *item)

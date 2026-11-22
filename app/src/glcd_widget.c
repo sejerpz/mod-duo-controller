@@ -268,7 +268,7 @@ void widget_listbox(glcd_t *display, listbox_t *listbox)
     center_focus = (max_lines / 2) - (1 - (max_lines % 2));
     first_line = 0;
 
-    if (listbox->hover > center_focus && listbox->count > max_lines)
+    if (listbox->hover > center_focus && listbox->hover < listbox->count && listbox->count > max_lines)
     {
         first_line = listbox->hover - center_focus;
         if (first_line > ABS(listbox->count - max_lines))
@@ -301,7 +301,7 @@ void widget_listbox(glcd_t *display, listbox_t *listbox)
 
             glcd_text(display, listbox->x + listbox->text_left_margin, y_line, line_txt, listbox->font, listbox->color);
 
-            if (i == focus)
+            if (i == focus && listbox->hover < listbox->count)
             {
                 glcd_rect_invert(display, listbox->x, y_line - listbox->line_top_margin, listbox->width, focus_height);
             }

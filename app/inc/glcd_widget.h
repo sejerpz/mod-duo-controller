@@ -60,6 +60,9 @@ typedef struct TEXTBOX_T {
     text_mode_t mode;
 } textbox_t;
 
+// a listbox hover past its lines: none of them is highlighted, the list is shown from the top
+#define LISTBOX_NO_HOVER    255
+
 typedef struct LISTBOX_T {
     uint8_t x, y, width, height, color;
     uint8_t hover, selected, count;
