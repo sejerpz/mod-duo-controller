@@ -3741,12 +3741,11 @@ void naveg_enter(uint8_t display)
 {
     if ((!g_initialized)&&(g_update_cb)) return;
 
-    // the browser takes the first knob, under its list: a click loads, or opens a bank
+    // the browser takes the first knob, under its list: a click loads, or opens a bank;
+    // a click of the second knob goes up a level, as a hold of FS2
     if (g_browser)
     {
-        if (display != DISPLAY_LEFT) return;
-
-        if (g_browser == BROWSER_BANKS) browser_up();
+        if (display != DISPLAY_LEFT || g_browser == BROWSER_BANKS) browser_up();
         else browser_load();
         return;
     }
